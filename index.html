@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
@@ -22,7 +23,7 @@
                 stone: '#1c1917',
                 crimson: '#881337',
                 gold: '#b45309',
-                text: '#f5f5f4', // Brightened for readability
+                text: '#f5f5f4', 
                 subtle: '#78716c'
               }
             },
@@ -45,7 +46,30 @@
         background-color: #050505;
         color: #f5f5f4;
       }
-      /* Custom Scrollbar for the brutalist look */
+      /* Film Grain Overlay */
+      .noise-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 50;
+        opacity: 0.05;
+        background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuNjUiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbm9pc2UpIiBvcGFjaXR5PSIxIi8+PC9zdmc+');
+      }
+      /* Vignette */
+      .vignette-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 49;
+        background: radial-gradient(circle, rgba(0,0,0,0) 50%, rgba(0,0,0,0.6) 100%);
+      }
+
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
       }
@@ -78,6 +102,8 @@
 </head>
   <body>
     <div id="root"></div>
+    <div class="noise-overlay"></div>
+    <div class="vignette-overlay"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

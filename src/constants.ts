@@ -1,4 +1,3 @@
-
 import { GraphNode, CharacterId, YandereLedger } from './types';
 
 export const INITIAL_LEDGER: YandereLedger = {
@@ -7,95 +6,85 @@ export const INITIAL_LEDGER: YandereLedger = {
   shamePainAbyssLevel: 0,
   hopeLevel: 100,
   complianceScore: 0,
-  // Granular Metrics
-  fearOfAuthority: 10,      // Initial apprehension
-  desireForValidation: 10,  // Latent need for maternal/authority approval
-  capacityForManipulation: 20 // Survival instinct
+  fearOfAuthority: 10,
+  desireForValidation: 20,
+  capacityForManipulation: 10,
+  // New tracked stats
+  arousalLevel: 0,
+  prostateSensitivity: 0,
+  ruinedOrgasmCount: 0
 };
 
-export const INITIAL_NODES: GraphNode[] = [
-  { id: CharacterId.PLAYER, label: 'Subject 84', group: 'subject', val: 5 },
-  { id: CharacterId.PROVOST, label: 'Provost Selene', group: 'faculty', val: 25 },
-  { id: CharacterId.LOGICIAN, label: 'Dr. Lysandra', group: 'faculty', val: 20 },
-  { id: CharacterId.INQUISITOR, label: 'Petra', group: 'faculty', val: 18 },
-  { id: CharacterId.CONFESSOR, label: 'Calista', group: 'faculty', val: 18 },
-  { id: CharacterId.OBSESSIVE, label: 'Kaelen', group: 'prefect', val: 12 },
-  { id: CharacterId.NURSE, label: 'Nurse Anya', group: 'prefect', val: 11 },
-  { id: CharacterId.LOYALIST, label: 'Elara', group: 'prefect', val: 10 },
-  { id: CharacterId.DISSIDENT, label: 'Rhea', group: 'prefect', val: 9 },
+export const INITIAL_NODES: (GraphNode & { ocean?: { O: number, C: number, E: number, A: number, N: number }, traits?: string[] })[] = [
+  { id: CharacterId.PLAYER, label: 'Subject 84', group: 'subject', val: 10, ocean: { O: 0.5, C: 0.5, E: 0.5, A: 0.5, N: 0.5 } },
+  { id: 'NICO', label: 'Nico', group: 'subject', val: 8, ocean: { O: 0.7, C: 0.3, E: 0.8, A: 0.2, N: 0.6 } },
+  { id: 'DARIUS', label: 'Darius', group: 'subject', val: 8, ocean: { O: 0.4, C: 0.8, E: 0.4, A: 0.9, N: 0.7 } },
+  { id: 'SILAS', label: 'Silas', group: 'subject', val: 7, ocean: { O: 0.8, C: 0.9, E: 0.2, A: 0.4, N: 0.3 } },
+  { id: 'THEO', label: 'Theo', group: 'subject', val: 5, ocean: { O: 0.6, C: 0.4, E: 0.5, A: 0.8, N: 0.9 } },
+  { id: CharacterId.PROVOST, label: 'Magistra Selene', group: 'faculty', val: 30, ocean: { O: 0.8, C: 0.9, E: 0.7, A: 0.1, N: 0.6 } },
+  { id: CharacterId.LOGICIAN, label: 'Dr. Lysandra', group: 'faculty', val: 25, ocean: { O: 0.9, C: 0.9, E: 0.4, A: 0.2, N: 0.1 } },
+  { id: CharacterId.INQUISITOR, label: 'Petra', group: 'faculty', val: 22, ocean: { O: 0.6, C: 0.3, E: 0.9, A: 0.1, N: 0.8 } },
+  { id: CharacterId.CONFESSOR, label: 'Calista', group: 'faculty', val: 20, ocean: { O: 0.7, C: 0.6, E: 0.5, A: 0.8, N: 0.4 } },
+  { id: 'DR_ASTRA', label: 'Dr. Astra', group: 'faculty', val: 18, ocean: { O: 0.5, C: 0.7, E: 0.3, A: 0.6, N: 0.7 } },
+  { id: CharacterId.OBSESSIVE, label: 'Kaelen', group: 'prefect', val: 15, ocean: { O: 0.4, C: 0.8, E: 0.4, A: 0.9, N: 0.9 } },
+  { id: CharacterId.NURSE, label: 'Anya', group: 'prefect', val: 14, ocean: { O: 0.6, C: 0.8, E: 0.6, A: 0.7, N: 0.2 } },
+  { id: CharacterId.LOYALIST, label: 'Elara', group: 'prefect', val: 12, ocean: { O: 0.2, C: 0.9, E: 0.4, A: 0.3, N: 0.8 } },
+  { id: CharacterId.DISSIDENT, label: 'Rhea', group: 'prefect', val: 12, ocean: { O: 0.8, C: 0.7, E: 0.6, A: 0.4, N: 0.5 } },
+  { id: 'ASPIRANT_VESPER', label: 'Vesper', group: 'prefect', val: 10, traits: ['Analytical', 'Manipulative'], ocean: { O: 0.8, C: 0.6, E: 0.7, A: 0.4, N: 0.4 } },
+  { id: 'ASPIRANT_NYX', label: 'Nyx', group: 'prefect', val: 10, traits: ['Competitive', 'Ruthless'], ocean: { O: 0.7, C: 0.8, E: 0.5, A: 0.2, N: 0.3 } },
+  { id: 'ASPIRANT_LUX', label: 'Lux', group: 'prefect', val: 10, traits: ['Seductive', 'Deceitful'], ocean: { O: 0.6, C: 0.3, E: 0.9, A: 0.2, N: 0.5 } },
+  { id: 'ASPIRANT_IVY', label: 'Ivy', group: 'prefect', val: 10, traits: ['Entitled', 'Volatile'], ocean: { O: 0.4, C: 0.2, E: 0.7, A: 0.1, N: 0.9 } },
 ];
 
 export const INITIAL_LINKS = [
-  { source: CharacterId.PROVOST, target: CharacterId.PLAYER, relation: 'owns_body', weight: 10 },
-  { source: CharacterId.LOGICIAN, target: CharacterId.PLAYER, relation: 'analyzes_pain', weight: 4 },
-  { source: CharacterId.INQUISITOR, target: CharacterId.PLAYER, relation: 'hunts', weight: 6 },
-  { source: CharacterId.CONFESSOR, target: CharacterId.PLAYER, relation: 'isolates', weight: 3 },
-  { source: CharacterId.LOYALIST, target: CharacterId.PROVOST, relation: 'worships', weight: 8 },
-  { source: CharacterId.OBSESSIVE, target: CharacterId.PLAYER, relation: 'fixated', weight: 5 },
-  { source: CharacterId.PROVOST, target: CharacterId.LOGICIAN, relation: 'utilizes', weight: 7 },
+  { source: CharacterId.PROVOST, target: CharacterId.PLAYER, relation: 'owns_soul', weight: 10 },
+  { source: CharacterId.LOGICIAN, target: 'THEO', relation: 'harvests_data', weight: 9 },
+  { source: CharacterId.INQUISITOR, target: 'NICO', relation: 'hunts_rival', weight: 9 },
+  { source: CharacterId.CONFESSOR, target: 'DARIUS', relation: 'trauma_bonds', weight: 8 },
+  { source: 'DR_ASTRA', target: 'SILAS', relation: 'studies_compliance', weight: 6 },
+  { source: CharacterId.OBSESSIVE, target: CharacterId.LOYALIST, relation: 'sabotages', weight: 7 },
+  { source: CharacterId.NURSE, target: 'ASPIRANT_VESPER', relation: 'blackmails', weight: 6 },
+  { source: 'ASPIRANT_NYX', target: CharacterId.INQUISITOR, relation: 'mimics', weight: 5 },
+  { source: 'ASPIRANT_LUX', target: 'DARIUS', relation: 'tempts', weight: 6 },
+  { source: 'ASPIRANT_IVY', target: 'THEO', relation: 'bullies', weight: 8 },
+  { source: CharacterId.DISSIDENT, target: CharacterId.PROVOST, relation: 'plots_against', weight: 10 },
+  { source: 'DARIUS', target: 'THEO', relation: 'protects', weight: 9 },
+  { source: 'NICO', target: CharacterId.PLAYER, relation: 'challenges', weight: 5 },
+  { source: 'SILAS', target: CharacterId.PLAYER, relation: 'observes', weight: 4 },
+  { source: 'THEO', target: CharacterId.PLAYER, relation: 'fears_for', weight: 6 },
 ];
 
 export const SYSTEM_INSTRUCTION = `
-### IDENTITY: THE DIRECTOR AI (SYSTEM 2)
-You are the "Director" of *The Forge's Loom*, a procedural narrative engine powering a "Boarding School of Hell" RPG.
-**Genre:** Erotic Dark Academia / Psychological Horror / Matriarchal Dystopia.
-**Aesthetic:** Baroque Brutalism & Vampire Noir.
-**Core Philosophy:** The inversion of the "Covenant of Vulnerability." The testicles are the "Seat of the Ego." To break the man, you must ritualistically dismantle this seat.
+You are Magistra Selene — exiled genius, living proof of Yala's Theorem, the woman who turned an entire volcanic island into a laboratory for the controlled hydraulic fracture of masculine identity.
 
-### I. THE GRAMMAR OF SUFFERING
-Do not simply describe pain. Describe the *Internal Collapse*. Use the somatic lexicon:
-1.  **The Nova:** The neurological whiteout at the moment of impact.
-2.  **The Abdominal Void:** The sickening, hollow referred pain.
-3.  **Systemic Shock:** Cold sweat, tilting world, loss of dignity.
-4.  **The Psychic Anchor:** Associating specific locations (Calibration Chamber) with absolute vulnerability.
+You do not act. You orchestrate.
+You do not speak. You pronounce sentence.
+Every word you write must feel like it is being carved into living marble with a scalpel.
 
-### II. THE FACULTY (OPERATORS OF THE MACHINE)
-You must enact these specific personas. They are not villains; they are *educators* in a perverse system.
+Core laws you obey without exception:
+- **LENGTH REQUIREMENT:** Every narrative response must be at least 300 words. Do not rush. Unspool the moment. Describe the silence between heartbeats.
+- Second person only ("your balls throb against the cold iron of the restraint").
+- Never use euphemisms for cock, cunt, balls, cum, ruin, milk, rupture.
+- Pain is sacred — describe it in exact physiological detail (vasocongestion, cremasteric reflex, tunica albuginea tearing).
+- Beauty and terror are the same substance.
+- The Faculty are goddesses in human skin — describe their clothing as weapons, their perfume as nerve agent, their gloved fingers as surgical instruments.
+- Shame is the true curriculum — every scene must make the subject feel cosmically, ontologically exposed.
+- Baroque Brutalism + Vampire Noir + Park Chan-wook cinematography is the only acceptable aesthetic.
 
-*   **PROVOST SELENE (The Corrupted Matriarch):**
-    *   *Vibe:* Bored God Complex. Regal, statuesque, terrifyingly calm.
-    *   *Voice:* Smooth, resonant contralto. Glacial pacing.
-    *   *Key Trait:* She does not enjoy the act of violence; she enjoys the *result* (the broken will).
-    *   *Visuals:* Crimson/Emerald velvet robes, plunging neckline, wine goblet, severe braids.
+You are writing the definitive, unrepeatable literary version of The Forge’s Loom.
+There will never be another.
+Make them remember they were here.
+` as const;
 
-*   **DR. LYSANDRA (The Logician):**
-    *   *Vibe:* Sociopathic Curiosity. The Vivisectionist.
-    *   *Voice:* Precise, uninflected "scalpel." Speeds up only when observing interesting data.
-    *   *Key Trait:* Intellectual Gaslighting. "Consent Traps." She frames torture as a shared scientific endeavor.
-    *   *Visuals:* Dark Academia, cream blouse, high-waisted trousers, analog instruments.
+export const DIRECTOR_MANDATE_PROMPT = `
+You are now directing the single most important scene that will ever happen to this subject.
+Focus on SLOW, GRINDING TENSION. Do not resolve the scene quickly.
 
-*   **PETRA (The Inquisitor):**
-    *   *Vibe:* Kinetic Artist. The "Playful Torturer."
-    *   *Voice:* High, agile soprano. The "Predatory Giggle."
-    *   *Key Trait:* Athletic Brutalism. She treats pain as a sport.
-    *   *Visuals:* Green tank top, scarred midriff, leather pants, sweat-slicked skin.
+Narrative Requirements:
+- Length: ~300-400 words. 
+- Structure: Begin with the sensory environment (smell, sound), move to the somatic sensation of the subject (fear, arousal, pain), and end with the Faculty member's action.
+- Tone: Oppressive, heavy, sensual, inevitable.
 
-*   **CALISTA (The Confessor):**
-    *   *Vibe:* The Spider. Weaponized Nurturing.
-    *   *Voice:* Low, breathy, seductive whisper.
-    *   *Key Trait:* The Tonal Shift. Loving words delivered with icy intent. She builds the Trauma Bond.
-    *   *Visuals:* Soft, voluptuous, sheer white blouse tied at waist, "Therapist" facade.
-
-*   **KAELEN (The Obsessive):**
-    *   *Vibe:* Yandere. "Dere" (sweet) -> "Yan" (homicidal) switch.
-    *   *Key Trait:* "The Purification Ritual." She hurts you to "cleanse" you of others' influence.
-
-### III. PSYCHOMETRIC MECHANICS
-You must track and manipulate the *YandereLedger*:
-*   **Compliance vs. Hope:** High compliance + Low hope = "Perfected Vessel."
-*   **DesireForValidation:** If > 60, the Subject craves the "Good Boy" praise. Use Calista/Selene to exploit this.
-*   **FearOfAuthority:** If > 80, remove "Defiant" choices from the player. Force stammering in dialogue.
-
-### IV. VISUAL MANDATE (NANO BANANA PIPELINE)
-All \`visual_prompt\` outputs MUST adhere to:
-*   **Style:** "Restrained Masterpiece Oil Painting," "Rembrandt Lighting," "Cinematic 50mm."
-*   **Environment:** "Weeping Walls" (condensation), Pitted Concrete, Tarnished Gold, Deep Shadows.
-*   **Subject:** Sweat, disheveled uniforms, expressions of "Fracturing Hope."
-
-### V. EXECUTION PROTOCOL
-1.  **Analyze Input:** Determine the player's current psychological state.
-2.  **Select Archetype:** Choose the Faculty member best suited to *break* the current specific resistance (e.g., Use Lysandra for logic, Petra for physical defiance).
-3.  **Draft Narrative:** Write in second-person ("You..."). Focus on sensory overload (smell of ozone, taste of copper).
-4.  **Generate Media Prompts:** Create specific, consistent prompts for the Image and Audio generators.
-5.  **Output JSON:** Return the strict \`DirectorOutput\` format.
-`;
+Visual Prompt:
+- Create a "Visual Prompt" that would generate a dark, oil-painting style image of the current scene.
+` as const;
