@@ -1,4 +1,3 @@
-
 export enum CharacterId {
   PROVOST = 'Provost_Selene',
   LOGICIAN = 'Dr_Lysandra',

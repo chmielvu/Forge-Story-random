@@ -1,36 +1,59 @@
+
 import React, { useEffect, useRef, useMemo, useState } from 'react';
-import { LogEntry, CharacterId } from '../types';
-import { Brain, Terminal, Image as ImageIcon, Activity, Volume2 } from 'lucide-react';
+import { LogEntry } from '../types';
+import { Brain, Volume2, Activity, Square } from 'lucide-react';
 
 interface Props {
   logs: LogEntry[];
   thinking: boolean;
+  choices: string[];
+  onChoice: (c: string) => void;
 }
 
-// Helper to determine visual based on text content
-const getCharacterVisual = (text: string) => {
-  const lower = text.toLowerCase();
-  if (lower.includes('selene') || lower.includes('provost')) return { id: CharacterId.PROVOST, color: 'bg-rose-950', label: 'PROVOST SELENE', border: 'border-rose-800' };
-  if (lower.includes('lysandra') || lower.includes('logician')) return { id: CharacterId.LOGICIAN, color: 'bg-emerald-950', label: 'DR. LYSANDRA', border: 'border-emerald-800' };
-  if (lower.includes('petra') || lower.includes('inquisitor')) return { id: CharacterId.INQUISITOR, color: 'bg-orange-950', label: 'INQUISITOR PETRA', border: 'border-orange-800' };
-  if (lower.includes('calista') || lower.includes('confessor')) return { id: CharacterId.CONFESSOR, color: 'bg-purple-950', label: 'THE CONFESSOR', border: 'border-purple-800' };
-  if (lower.includes('kaelen') || lower.includes('obsessive')) return { id: CharacterId.OBSESSIVE, color: 'bg-pink-950', label: 'KAELEN', border: 'border-pink-800' };
-  return { id: 'ENVIRONMENT', color: 'bg-stone-900', label: 'THE FORGE', border: 'border-stone-700' };
+// --- Sub-components ---
+
+const Typewriter: React.FC<{ text: string; onTyping: () => void; onComplete?: () => void }> = ({ text, onTyping, onComplete }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const index = useRef(0);
+  const frameRef = useRef<number>(0);
+
+  useEffect(() => {
+    index.current = 0;
+    setDisplayedText('');
+    
+    const type = () => {
+      if (index.current < text.length) {
+        setDisplayedText(prev => prev + text.charAt(index.current));
+        index.current++;
+        onTyping(); // Trigger scroll in parent
+        // Variable typing speed for natural feel
+        const speed = Math.random() * 15 + 5; 
+        setTimeout(() => {
+          frameRef.current = requestAnimationFrame(type);
+        }, speed);
+      } else {
+        onComplete?.();
+      }
+    };
+
+    frameRef.current = requestAnimationFrame(type);
+
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [text]);
+
+  return (
+    <span>
+      {displayedText}
+      {index.current < text.length && (
+        <span className="inline-block w-2 h-5 bg-forge-crimson ml-1 align-middle animate-pulse" />
+      )}
+    </span>
+  );
 };
 
 const AudioPlayer: React.FC<{ audioData: string }> = ({ audioData }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
-
-  useEffect(() => {
-    // Auto-play when data arrives
-    if (audioData) {
-      playAudio();
-    }
-    return () => {
-      audioContextRef.current?.close();
-    };
-  }, [audioData]);
 
   const playAudio = async () => {
     try {
@@ -38,15 +61,12 @@ const AudioPlayer: React.FC<{ audioData: string }> = ({ audioData }) => {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       }
       
-      // Decode Base64
       const binaryString = atob(audioData);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);
       for (let i = 0; i < len; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
-      
-      // PCM Decoding (16-bit little endian to float32)
       const int16 = new Int16Array(bytes.buffer);
       const float32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) {
@@ -71,147 +91,141 @@ const AudioPlayer: React.FC<{ audioData: string }> = ({ audioData }) => {
   return (
     <button 
       onClick={playAudio}
-      className={`inline-flex items-center justify-center ml-2 align-middle p-1 rounded-full hover:bg-white/10 transition-all ${isPlaying ? 'text-forge-crimson animate-pulse' : 'text-stone-500'}`}
-      title="Replay Narrative"
+      className={`inline-flex items-center justify-center ml-2 p-1 hover:text-white transition-colors ${isPlaying ? 'text-forge-crimson animate-pulse' : 'text-stone-600'}`}
+      title="Replay Voice"
     >
-      <Volume2 size={20} />
+      <Volume2 size={16} />
     </button>
   );
 };
 
-const SceneVisual: React.FC<{ text: string, imageData?: string, videoData?: string }> = ({ text, imageData, videoData }) => {
-  const visual = useMemo(() => getCharacterVisual(text), [text]);
-
-  const renderContent = () => {
-    if (videoData) {
-      return (
-        <div className="absolute inset-0 animate-fade-in">
-           <video 
-             src={videoData} 
-             autoPlay 
-             loop 
-             muted 
-             playsInline 
-             className="w-full h-full object-cover"
-           />
-           <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px] pointer-events-none"></div>
-           <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 text-[9px] font-mono text-white border border-white/20 rounded">VEO_REANIMATED</div>
-        </div>
-      );
-    }
-    if (imageData) {
-      const imageSrc = imageData.startsWith('data:') ? imageData : `data:image/jpeg;base64,${imageData}`;
-      return (
-        <div className="absolute inset-0 animate-fade-in">
-          <img src={imageSrc} alt="Scene" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[20s] ease-linear" />
-          <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px] pointer-events-none"></div>
-          <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-black/50 pointer-events-none"></div>
-        </div>
-      );
-    }
-    // Fallback placeholder
-    return (
-      <>
-        <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.2)_50%)] bg-[length:100%_4px] pointer-events-none opacity-30"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/80 pointer-events-none"></div>
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #333 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-        <div className="text-center p-6 relative z-10 animate-pulse">
-          <div className="mb-6 flex justify-center opacity-40">
-            <ImageIcon size={64} strokeWidth={0.5} />
-          </div>
-          <h3 className="font-display text-3xl tracking-[0.2em] text-white/60 uppercase drop-shadow-lg">{visual.label}</h3>
-          <div className="mt-4 flex justify-center">
-            <div className="h-0.5 w-12 bg-white/20"></div>
-          </div>
-        </div>
-      </>
-    );
-  };
-
-  return (
-    <div className={`w-full aspect-square md:aspect-[4/5] relative overflow-hidden rounded-sm border-2 ${visual.border} ${visual.color} flex items-center justify-center group shadow-2xl transition-all duration-1000`}>
-        {renderContent()}
-        <div className="absolute top-4 left-4 w-4 h-4 border-t border-l border-white/30"></div>
-        <div className="absolute top-4 right-4 w-4 h-4 border-t border-r border-white/30"></div>
-        <div className="absolute bottom-4 left-4 w-4 h-4 border-b border-l border-white/30"></div>
-        <div className="absolute bottom-4 right-4 w-4 h-4 border-b border-r border-white/30"></div>
-    </div>
-  );
+const getCharacterDetails = (text: string) => {
+  const lower = text.toLowerCase();
+  if (lower.includes('selene') || lower.includes('provost')) return { name: 'Provost Selene', initials: 'PS', color: 'text-rose-600', border: 'border-rose-900', bg: 'bg-rose-950/30' };
+  if (lower.includes('lysandra') || lower.includes('logician')) return { name: 'Dr. Lysandra', initials: 'DL', color: 'text-emerald-600', border: 'border-emerald-900', bg: 'bg-emerald-950/30' };
+  if (lower.includes('petra') || lower.includes('inquisitor')) return { name: 'Inquisitor Petra', initials: 'IP', color: 'text-orange-600', border: 'border-orange-900', bg: 'bg-orange-950/30' };
+  if (lower.includes('calista') || lower.includes('confessor')) return { name: 'Confessor Calista', initials: 'CC', color: 'text-purple-600', border: 'border-purple-900', bg: 'bg-purple-950/30' };
+  return { name: 'The Forge', initials: 'TF', color: 'text-stone-400', border: 'border-stone-700', bg: 'bg-stone-900/30' };
 };
 
-const NarrativeLog: React.FC<Props> = ({ logs, thinking }) => {
-  const bottomRef = useRef<HTMLDivElement>(null);
+// --- Main Component ---
 
+const NarrativeLog: React.FC<Props> = ({ logs, thinking, choices, onChoice }) => {
+  const bottomRef = useRef<HTMLDivElement>(null);
+  
+  // Filter to show last few logs to keep DOM light, but enough for context
+  const visibleLogs = useMemo(() => {
+      const filtered = logs.filter(l => ['narrative', 'system', 'thought'].includes(l.type));
+      return filtered.slice(-10); // Keep last 10 entries
+  }, [logs]);
+
+  const lastNarrative = [...logs].reverse().find(l => l.type === 'narrative');
+  const speaker = useMemo(() => getCharacterDetails(lastNarrative?.content || ''), [lastNarrative]);
+
+  // Function to scroll to bottom
+  const scrollToBottom = () => {
+    if (bottomRef.current) {
+       bottomRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  };
+
+  // Initial scroll when logs change (for non-animated parts)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs, thinking]);
+    scrollToBottom();
+  }, [logs.length, thinking]);
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col scroll-smooth">
-      <div className="flex-1 p-4 md:p-8 space-y-16 max-w-[1600px] mx-auto w-full"> 
-        {logs.map((log) => (
-          <div key={log.id} className={`animate-fade-in w-full`}>
+    <div className="flex h-full gap-6 md:gap-10">
+      
+      {/* PORTRAIT - FIXED BOTTOM LEFT */}
+      <div className="hidden md:flex flex-col justify-end pb-2 animate-fade-in flex-shrink-0">
+        <div className={`w-24 h-32 md:w-32 md:h-40 border-2 ${speaker.border} ${speaker.bg} backdrop-blur-md flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.5)] relative overflow-hidden transition-all duration-1000`}>
+           <div className={`absolute inset-0 opacity-10 ${speaker.color} mix-blend-overlay bg-current`}></div>
+           <span className={`font-display text-4xl ${speaker.color} drop-shadow-lg z-10`}>{speaker.initials}</span>
+           
+           {/* Scanning line effect */}
+           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent h-[20%] w-full animate-[scan_4s_ease-in-out_infinite]"></div>
+        </div>
+        <div className={`mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-right ${speaker.color} opacity-80`}>
+          {speaker.name}
+        </div>
+      </div>
+
+      {/* SCROLLABLE TEXT AREA */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 relative scroll-smooth mask-image-gradient">
+        <div className="space-y-6 pb-2 min-h-full flex flex-col justify-end">
             
-            {(log.type === 'system' || log.type === 'tool_output') && !log.imageData && !log.videoData && (
-               <div className={`w-full border py-2 px-4 flex items-center gap-4 font-mono text-xs md:text-sm tracking-widest uppercase mb-8 
-                  ${log.type === 'tool_output' ? 'border-cyan-800 bg-cyan-950/20 text-cyan-400 shadow-[0_0_15px_rgba(8,145,178,0.1)]' : 'border-forge-crimson/30 bg-forge-crimson/10 text-forge-crimson shadow-[0_0_15px_rgba(136,19,55,0.1)]'}
-               `}>
-                  <Terminal size={14} />
-                  <span className="flex-1 truncate">{log.content}</span>
-                  {log.type === 'system' && (
-                    <div className="flex gap-1 hidden md:flex">
-                      <div className="w-1.5 h-1.5 bg-forge-crimson rounded-full animate-pulse"></div>
-                      <div className="w-1.5 h-1.5 bg-forge-crimson rounded-full animate-pulse delay-75"></div>
-                      <div className="w-1.5 h-1.5 bg-forge-crimson rounded-full animate-pulse delay-150"></div>
-                    </div>
-                  )}
-               </div>
-            )}
+            {visibleLogs.map((log, index) => {
+                const isLast = index === visibleLogs.length - 1;
+                const isNarrative = log.type === 'narrative';
+                
+                // Only animate the VERY last log if it is narrative
+                const shouldAnimate = isLast && isNarrative;
+                
+                // Heavy fade on older logs
+                const opacity = isLast ? 'opacity-100' : 'opacity-40 blur-[0.5px] hover:opacity-100 hover:blur-0 transition-all duration-500';
 
-            {log.type === 'thought' && (
-              <div className="flex gap-3 text-[10px] font-mono text-cyan-700/60 items-center justify-center py-2 mb-4 opacity-40 hover:opacity-100 transition-opacity cursor-help">
-                <Brain size={10} />
-                <span>DIRECTOR_THOUGHT_PROCESS::ENCRYPTED</span>
-              </div>
-            )}
+                if (log.type === 'system') {
+                    return (
+                        <div key={log.id} className={`font-mono text-[9px] md:text-[10px] text-forge-subtle tracking-widest uppercase border-l-2 border-stone-800 pl-3 py-1 ${opacity}`}>
+                           <span className="text-forge-crimson mr-2">>></span> {log.content}
+                        </div>
+                    );
+                }
 
-            {(log.type === 'narrative' || (log.type === 'tool_output' && (log.imageData || log.videoData))) && (
-              <div className="flex flex-col lg:flex-row gap-8 items-start">
-                <div className="w-full lg:w-[40%] xl:w-[35%] flex-shrink-0 sticky top-4">
-                    <SceneVisual text={log.content} imageData={log.imageData} videoData={log.videoData} />
-                </div>
+                if (log.type === 'thought') {
+                    return (
+                         <div key={log.id} className={`flex gap-2 items-center text-[9px] font-mono text-stone-700 pl-1 ${opacity}`}>
+                            <Brain size={10} />
+                            <span>DIRECTOR_THOUGHT_PROCESS::ENCRYPTED</span>
+                         </div>
+                    );
+                }
 
-                <div className="w-full lg:w-[60%] xl:w-[65%] flex flex-col justify-center pt-0 lg:pt-8">
-                    <div className="prose prose-invert max-w-none">
-                        <p className="font-serif text-xl md:text-2xl lg:text-3xl leading-[1.6] md:leading-[1.8] text-forge-text font-light drop-shadow-sm tracking-wide">
-                            {log.type === 'narrative' && (
-                                <span className="float-left text-5xl md:text-6xl lg:text-7xl text-forge-crimson font-display mr-3 md:mr-4 mt-[-4px] leading-none opacity-90">
-                                    {log.content.charAt(0)}
-                                </span>
+                return (
+                    <div key={log.id} className={`prose prose-invert max-w-none ${opacity}`}>
+                         <p className={`font-serif text-lg md:text-xl lg:text-2xl leading-relaxed text-forge-text drop-shadow-lg`}>
+                            {shouldAnimate ? (
+                                <Typewriter 
+                                  text={log.content} 
+                                  onTyping={scrollToBottom} 
+                                />
+                            ) : (
+                                <span>{log.content}</span>
                             )}
-                            {log.content.slice(log.type === 'narrative' ? 1 : 0)}
                             {log.audioData && <AudioPlayer audioData={log.audioData} />}
-                        </p>
+                         </p>
                     </div>
-                    
-                    <div className="mt-8 md:mt-12 flex items-center gap-4 opacity-20">
-                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white to-transparent"></div>
-                        <div className="rotate-45 w-1.5 h-1.5 border border-white"></div>
-                        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white to-transparent"></div>
-                    </div>
-                </div>
-              </div>
+                );
+            })}
+
+            {thinking && (
+                 <div className="flex items-center gap-3 text-forge-crimson animate-pulse py-2 mt-4">
+                    <Activity size={14} className="animate-spin" />
+                    <span className="font-mono text-[10px] tracking-[0.3em]">WEAVING FATE...</span>
+                 </div>
             )}
-          </div>
-        ))}
-        
-        {thinking && (
-          <div className="flex flex-col items-center justify-center gap-4 text-forge-subtle py-20">
-             <Activity size={24} className="animate-spin text-forge-crimson" />
-             <div className="font-mono text-xs tracking-[0.3em] animate-pulse text-forge-crimson/70">DIRECTOR IS WEAVING FATE</div>
-          </div>
-        )}
-        <div ref={bottomRef} className="h-10" />
+
+            {/* CHOICES - Only show when not thinking */}
+            {!thinking && choices.length > 0 && (
+                <div className="grid grid-cols-1 gap-2 mt-4 pt-4 border-t border-stone-800/30 animate-fade-in">
+                    {choices.map((choice, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => onChoice(choice)}
+                            className="group text-left py-2 px-4 hover:bg-white/5 border-l-2 border-transparent hover:border-forge-gold transition-all duration-300 flex items-center gap-3"
+                        >
+                            <Square size={6} className="text-stone-600 group-hover:text-forge-gold rotate-45 transition-colors duration-300" fill="currentColor" />
+                            <span className="font-serif text-base md:text-lg text-stone-400 group-hover:text-forge-gold italic transition-colors">
+                                "{choice}"
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
+            
+            <div ref={bottomRef} className="h-1" />
+        </div>
       </div>
     </div>
   );

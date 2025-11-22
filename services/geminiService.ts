@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { SYSTEM_INSTRUCTION, DIRECTOR_MANDATE_PROMPT } from "../constants";
 import { DirectorOutput, GameState } from "../types";
@@ -122,15 +123,16 @@ export const generateNarrativeMedia = async (
   visualPrompt: string
 ): Promise<{ audioData?: string, imageData?: string }> => {
   
-  // Enforcing the aesthetic via prompt injection
-  const aestheticMandate = "Aesthetic: Baroque Brutalism meets Vampire Noir. Park Chan-wook cinematography. Deep chiaroscuro lighting, rich gold and crimson accents against black stone. Photorealistic, 8k, highly detailed textures (velvet, sweat, cold iron).";
+  const styleSuffix = " style: Dark, oppressive oil painting, golden frames, baroque noir, cinematic lighting, 8k resolution, highly detailed, atmospheric fog, volumetric lighting, dark erotic academia.";
   
   const imagePromise = ai.models.generateContent({
-    // Switched to Flash Image to resolve 403 Permission Denied on Pro Image
-    model: 'gemini-2.5-flash-image', 
-    contents: { parts: [{ text: `${visualPrompt}. ${aestheticMandate}` }] },
+    model: 'gemini-3-pro-image-preview', 
+    contents: { parts: [{ text: `${visualPrompt} ${styleSuffix}` }] },
     config: {
-      // Flash Image supports simplified config. Removed 'imageSize' as it is Pro-only features often causing issues.
+      imageConfig: {
+        aspectRatio: '16:9',
+        imageSize: '1K'
+      },
       safetySettings: [
         { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -184,7 +186,7 @@ export const animateImageWithVeo = async (
   try {
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-fast-generate-preview',
-      prompt: `Cinematic slow motion, Park Chan-wook style, dark oppressive atmosphere, subtle movement, ${prompt}`,
+      prompt: `Extreme slow-motion psychological erotic dark academia, Veo 3.1 cinematic masterpiece, baroque-brutalist cathedral lighting with single shaft of cold moonlight cutting through stained glass, Prefect Anya (or any Faculty/Prefect) in pristine white medical coat or tailored academic robe slowly unbuttoned just enough to reveal the soft rise of her breasts with every controlled breath, her gloved fingers tracing an invisible line down the subject's throat or sternum with surgical tenderness that suddenly pauses at the exact moment his pulse betrays him, her kind eyes locking onto his with false maternal warmth that curdles into predatory ownership, his body trembling involuntarily while her lips part in the faintest cruel smile, visible gooseflesh on his skin, the air thick tension of unspoken threat and helpless arousal hanging in the candle-scented air, fabric tension on her blouse, subtle wet shine on her lower lip, breath mingling in extreme close-up, no nudity, pure intellectual femdom trauma-bonding intensity, Park Chan-wook × Hannibal × Vampire Noir aesthetic, 8K volumetric god rays, film grain, anamorphic lens flare ${prompt}`,
       image: {
         imageBytes: imageB64,
         mimeType: 'image/jpeg',

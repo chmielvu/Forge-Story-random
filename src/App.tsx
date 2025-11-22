@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { GameState, LogEntry } from './types';
 import { INITIAL_LEDGER, INITIAL_NODES, INITIAL_LINKS } from './constants';
@@ -42,8 +43,8 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const hasInitialized = useRef(false);
 
-  // Derived state for background
-  const activeBackground = logs.slice().reverse().find(l => l.imageData || l.videoData);
+  // Derived state for background - find the last log with media
+  const activeBackground = [...logs].reverse().find(l => l.imageData || l.videoData);
   const latestImage = activeBackground?.imageData;
   const latestVideo = activeBackground?.videoData;
 
@@ -103,7 +104,11 @@ const App: React.FC = () => {
     }
 
     if (response.new_edges) {
-       // ... edge update logic would go here ...
+       setGameState(prev => ({
+           ...prev,
+           // Simplified edge update logic
+           links: [...prev.links, ...response.new_edges!]
+       }));
     }
 
     const narrativeId = `narrative-${Date.now()}`;
@@ -141,8 +146,9 @@ const App: React.FC = () => {
               <div className="text-stone-800 font-display text-6xl opacity-20">THE FORGE</div>
            </div>
         )}
-        {/* Gradient overlay to ensure text readability at bottom */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/95"></div>
+        {/* Heavy gradient at bottom for text legibility */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black via-black/90 to-transparent"></div>
       </div>
 
       {/* LAYER 1: VIGNETTE & NOISE */}
@@ -153,24 +159,30 @@ const App: React.FC = () => {
         <div className="flex gap-4">
           <button 
             onClick={() => setIsMenuOpen(true)}
-            className="border border-forge-gold/30 text-forge-gold/70 hover:bg-forge-gold/10 hover:text-forge-gold hover:border-forge-gold p-2 rounded-sm transition-all backdrop-blur-md"
+            className="group border border-forge-gold/30 bg-black/50 hover:bg-forge-gold/10 hover:text-forge-gold hover:border-forge-gold p-2 rounded-sm transition-all backdrop-blur-md text-stone-400"
           >
             <Menu size={20} />
           </button>
         </div>
         
-        <button 
-            onClick={() => setIsGrimoireOpen(true)}
-            className="border border-stone-700 text-stone-400 hover:text-white hover:border-white px-4 py-2 rounded-sm backdrop-blur-md font-mono text-xs tracking-widest uppercase flex items-center gap-2 transition-all"
-        >
-           <Eye size={14} />
-           Terminal
-        </button>
+        <div className="flex flex-col items-end gap-2">
+           <button 
+               onClick={() => setIsGrimoireOpen(true)}
+               className="border border-stone-700 bg-black/50 text-stone-400 hover:text-white hover:border-white px-4 py-2 rounded-sm backdrop-blur-md font-mono text-xs tracking-widest uppercase flex items-center gap-2 transition-all"
+           >
+              <Eye size={14} />
+              Terminal
+           </button>
+           <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500">
+              <Activity size={10} className={isThinking ? "text-forge-gold animate-pulse" : "text-stone-700"} />
+              <span>{isThinking ? "NEURAL_LINK_ACTIVE" : "AWAITING_INPUT"}</span>
+           </div>
+        </div>
       </div>
 
       {/* LAYER 3: BOTTOM NARRATIVE CONSOLE */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 h-[40vh] flex flex-col justify-end bg-gradient-to-t from-black via-black/95 to-transparent pt-12 pb-6">
-        <div className="w-full h-full max-w-7xl mx-auto px-6 md:px-12 flex gap-8 items-end">
+      <div className="absolute bottom-0 left-0 right-0 z-30 h-[35vh] flex flex-col justify-end pb-6 md:pb-12">
+        <div className="w-full h-full max-w-7xl mx-auto px-4 md:px-12 flex gap-8 items-end">
            
            {/* NARRATIVE COMPONENT */}
            <div className="flex-1 h-full relative">
@@ -188,7 +200,7 @@ const App: React.FC = () => {
       {/* OVERLAYS: MENU / STATS */}
       {isMenuOpen && (
         <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-xl p-8 animate-fade-in flex flex-col md:flex-row gap-12 overflow-y-auto">
-          <button onClick={() => setIsMenuOpen(false)} className="absolute top-6 right-6 text-white hover:text-forge-crimson"><X /></button>
+          <button onClick={() => setIsMenuOpen(false)} className="absolute top-6 right-6 text-white hover:text-forge-gold"><X /></button>
           
           <div className="flex-1 max-w-md space-y-8 pt-10">
              <h2 className="font-display text-3xl text-forge-gold border-b border-stone-800 pb-4">Subject Metrics</h2>
@@ -201,7 +213,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex-1 max-w-2xl space-y-8 pt-10">
-             <h2 className="font-display text-3xl text-forge-crimson border-b border-stone-800 pb-4">Social Web</h2>
+             <h2 className="font-display text-3xl text-forge-gold border-b border-stone-800 pb-4">Social Web</h2>
              <NetworkGraph nodes={gameState.nodes} links={gameState.links} />
           </div>
         </div>
