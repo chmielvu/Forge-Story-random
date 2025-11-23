@@ -1,6 +1,8 @@
+
 import { GoogleGenAI, Type, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { SYSTEM_INSTRUCTION, DIRECTOR_MANDATE_PROMPT } from "../constants";
 import { DirectorOutput, GameState } from "../types";
+import { orchestrator } from "../agents/AgentOrchestrator";
 
 // Initialize client with strict process.env access
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -60,8 +62,10 @@ export const generateNextTurn = async (
   
   const model = "gemini-3-pro-preview"; 
   const validNodes = getValidNodesString(currentState.nodes);
-  
   const recentHistory = history.slice(-15).join("\n\n");
+
+  // ORCHESTRATOR INJECTION
+  const agentContext = orchestrator.generateContextBlock(currentState, action);
 
   const prompt = `
     ${DIRECTOR_MANDATE_PROMPT}
@@ -72,6 +76,8 @@ export const generateNextTurn = async (
     - Active Relationships: ${currentState.links.length} edges
     - Characters Present: ${validNodes}
     
+    ${agentContext}
+
     [NARRATIVE MEMORY - PREVIOUS TURNS]
     ${recentHistory}
     
@@ -122,15 +128,13 @@ export const generateNarrativeMedia = async (
   visualPrompt: string
 ): Promise<{ audioData?: string, imageData?: string }> => {
   
-  // Enforcing the aesthetic via prompt injection
-  const aestheticMandate = "Aesthetic: Baroque Brutalism meets Vampire Noir. Park Chan-wook cinematography. Deep chiaroscuro lighting, rich gold and crimson accents against black stone. Photorealistic, 8k, highly detailed textures (velvet, sweat, cold iron).";
+  const styleSuffix = " style: Dark, oppressive oil painting, golden frames, baroque noir, cinematic lighting, 8k resolution, highly detailed, atmospheric fog, volumetric lighting, dark erotic academia.";
   
   const imagePromise = ai.models.generateContent({
-    // Switched to Flash Image to resolve 403 Permission Denied on Pro Image
     model: 'gemini-2.5-flash-image', 
-    contents: { parts: [{ text: `${visualPrompt}. ${aestheticMandate}` }] },
+    contents: { parts: [{ text: `${visualPrompt} ${styleSuffix}` }] },
     config: {
-      // Flash Image supports simplified config. Removed 'imageSize' as it is Pro-only features often causing issues.
+      // Nano/Flash series do not support responseMimeType or Schema
       safetySettings: [
         { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -184,7 +188,7 @@ export const animateImageWithVeo = async (
   try {
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-fast-generate-preview',
-      prompt: `Cinematic slow motion, Park Chan-wook style, dark oppressive atmosphere, subtle movement, ${prompt}`,
+      prompt: `Cinematic slow motion, Park Chan-wook style, dark oppressive atmosphere, gold and black, subtle movement, ${prompt}`,
       image: {
         imageBytes: imageB64,
         mimeType: 'image/jpeg',

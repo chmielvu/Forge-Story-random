@@ -1,3 +1,4 @@
+
 export enum CharacterId {
   PROVOST = 'Provost_Selene',
   LOGICIAN = 'Dr_Lysandra',
@@ -75,3 +76,25 @@ export interface DirectorOutput {
 }
 
 export type ToolMode = 'ANALYZE' | 'REANIMATE' | 'DISTORT';
+
+// --- AGENT SYSTEM TYPES ---
+
+export type OceanTraits = {
+  openness: number;
+  conscientiousness: number;
+  extraversion: number;
+  agreeableness: number;
+  neuroticism: number;
+};
+
+export type AgentArchetype = 'DOMINANT' | 'ANALYTICAL' | 'SADISTIC' | 'NURTURING' | 'SUBVERSIVE';
+
+export interface NPCAgentState {
+  id: CharacterId;
+  name: string;
+  archetype: AgentArchetype;
+  traits: OceanTraits;
+  voicePreset: 'Zephyr' | 'Puck' | 'Kore' | 'Fenrir';
+  currentIntent: string; // Short description of what they want RIGHT NOW
+  obsessionLevel: number; // 0-100 how focused they are on Subject 84
+}

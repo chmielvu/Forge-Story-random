@@ -7,6 +7,8 @@ import NarrativeLog from './components/NarrativeLog';
 import Grimoire from './components/Grimoire';
 import StatusLedger from './components/StatusLedger';
 import NetworkGraph from './components/NetworkGraph';
+import ReactiveCanvas from './components/ReactiveCanvas';
+import DistortionLayer from './components/DistortionLayer';
 import { Menu, Eye, X, Activity } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -23,7 +25,7 @@ const App: React.FC = () => {
     { 
       id: 'init-1', 
       type: 'system', 
-      content: 'SYSTEM_BOOT::YANDERE_PROTOCOL_INITIATED...' 
+      content: 'SYSTEM_BOOT::PROTOCOL_INITIATED...' 
     },
     { 
       id: 'init-2', 
@@ -54,7 +56,7 @@ const App: React.FC = () => {
     hasInitialized.current = true;
 
     const initNarrative = logs[1].content;
-    const initVisualPrompt = "Magistra Selene standing on the Weeping Dock, black volcanic rock, crimson velvet robes, holding wine goblet, stormy sky, cinematic lighting, detailed, oppressive atmosphere.";
+    const initVisualPrompt = "Magistra Selene standing on the Weeping Dock, black volcanic rock, crimson velvet robes, holding wine goblet, stormy sky, cinematic lighting, highly detailed, baroque brutalism.";
     
     generateNarrativeMedia(initNarrative, initVisualPrompt).then(media => {
       setLogs(currentLogs => 
@@ -133,100 +135,101 @@ const App: React.FC = () => {
   }, [logs, gameState]);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-black text-forge-text font-sans">
-      
-      {/* LAYER 0: CINEMATIC BACKGROUND */}
-      <div className="absolute inset-0 z-0 transition-opacity duration-1000 ease-in-out">
-        {latestVideo ? (
-           <video src={latestVideo} autoPlay loop muted playsInline className="w-full h-full object-cover opacity-60" />
-        ) : latestImage ? (
-           <img src={latestImage.startsWith('data:') ? latestImage : `data:image/jpeg;base64,${latestImage}`} className="w-full h-full object-cover opacity-60 animate-pulse-slow" alt="Scene" />
-        ) : (
-           <div className="w-full h-full bg-stone-950 opacity-100 flex items-center justify-center">
-              <div className="text-stone-800 font-display text-6xl opacity-20">THE FORGE</div>
-           </div>
-        )}
-        {/* Heavy gradient at bottom for text legibility */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black"></div>
-        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black via-black/90 to-transparent"></div>
-      </div>
-
-      {/* LAYER 1: VIGNETTE & NOISE */}
-      <div className="absolute inset-0 z-10 pointer-events-none shadow-[inset_0_0_150px_rgba(0,0,0,1)]"></div>
-
-      {/* LAYER 2: TOP CONTROLS */}
-      <div className="absolute top-0 left-0 right-0 z-40 p-6 flex justify-between items-start">
-        <div className="flex gap-4">
-          <button 
-            onClick={() => setIsMenuOpen(true)}
-            className="group border border-forge-gold/30 bg-black/50 hover:bg-forge-gold/10 hover:text-forge-gold hover:border-forge-gold p-2 rounded-sm transition-all backdrop-blur-md text-stone-400"
-          >
-            <Menu size={20} />
-          </button>
-        </div>
+    <DistortionLayer ledger={gameState.ledger}>
+      <div className="relative w-full h-screen overflow-hidden bg-forge-black text-forge-text font-sans selection:bg-forge-gold selection:text-black">
         
-        <div className="flex flex-col items-end gap-2">
-           <button 
-               onClick={() => setIsGrimoireOpen(true)}
-               className="border border-stone-700 bg-black/50 text-stone-400 hover:text-white hover:border-white px-4 py-2 rounded-sm backdrop-blur-md font-mono text-xs tracking-widest uppercase flex items-center gap-2 transition-all"
-           >
-              <Eye size={14} />
-              Terminal
-           </button>
-           <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500">
-              <Activity size={10} className={isThinking ? "text-forge-gold animate-pulse" : "text-stone-700"} />
-              <span>{isThinking ? "NEURAL_LINK_ACTIVE" : "AWAITING_INPUT"}</span>
-           </div>
-        </div>
-      </div>
-
-      {/* LAYER 3: BOTTOM NARRATIVE CONSOLE */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 h-[35vh] flex flex-col justify-end pb-6 md:pb-12">
-        <div className="w-full h-full max-w-7xl mx-auto px-4 md:px-12 flex gap-8 items-end">
-           
-           {/* NARRATIVE COMPONENT */}
-           <div className="flex-1 h-full relative">
-              <NarrativeLog 
-                logs={logs} 
-                thinking={isThinking} 
-                choices={choices}
-                onChoice={handleAction}
-              />
-           </div>
-
-        </div>
-      </div>
-
-      {/* OVERLAYS: MENU / STATS */}
-      {isMenuOpen && (
-        <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-xl p-8 animate-fade-in flex flex-col md:flex-row gap-12 overflow-y-auto">
-          <button onClick={() => setIsMenuOpen(false)} className="absolute top-6 right-6 text-white hover:text-forge-gold"><X /></button>
+        {/* LAYER 0: CINEMATIC BACKGROUND */}
+        <div className="absolute inset-0 z-0 transition-opacity duration-1000 ease-in-out">
+          {latestVideo ? (
+             <video src={latestVideo} autoPlay loop muted playsInline className="w-full h-full object-cover opacity-70" />
+          ) : latestImage ? (
+             <img src={latestImage.startsWith('data:') ? latestImage : `data:image/jpeg;base64,${latestImage}`} className="w-full h-full object-cover opacity-70 animate-pulse-slow" alt="Scene" />
+          ) : (
+             <div className="w-full h-full bg-stone-950 opacity-100 flex items-center justify-center">
+                <div className="text-forge-gold font-display text-6xl opacity-20">THE FORGE</div>
+             </div>
+          )}
           
-          <div className="flex-1 max-w-md space-y-8 pt-10">
-             <h2 className="font-display text-3xl text-forge-gold border-b border-stone-800 pb-4">Subject Metrics</h2>
-             <StatusLedger ledger={gameState.ledger} />
-             <div className="font-mono text-xs text-stone-500 space-y-2 p-4 border border-stone-900 bg-stone-900/20">
-                <p>TURN_CYCLE: {gameState.turn}</p>
-                <p>CURRENT_SECTOR: {gameState.location}</p>
-                <p>SYSTEM_STATUS: NOMINAL</p>
+          {/* Reactive Particle Canvas */}
+          <ReactiveCanvas ledger={gameState.ledger} />
+
+          {/* Cinematic Letterbox / Gradients */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-[40vh] bg-gradient-to-t from-black via-black/95 to-transparent"></div>
+        </div>
+
+        {/* LAYER 1: ATMOSPHERE */}
+        <div className="absolute inset-0 z-10 pointer-events-none shadow-[inset_0_0_200px_rgba(0,0,0,0.8)]"></div>
+
+        {/* LAYER 2: TOP CONTROLS (Minimal) */}
+        <div className="absolute top-0 left-0 right-0 z-40 p-6 flex justify-between items-start">
+          <div className="flex gap-4">
+            <button 
+              onClick={() => setIsMenuOpen(true)}
+              className="group border border-forge-gold/30 bg-black/50 hover:bg-forge-gold/10 hover:text-forge-gold hover:border-forge-gold p-3 rounded-sm transition-all backdrop-blur-md text-stone-400"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
+          
+          <div className="flex flex-col items-end gap-2">
+             <button 
+                 onClick={() => setIsGrimoireOpen(true)}
+                 className="border border-stone-800 bg-black/50 text-stone-400 hover:text-forge-gold hover:border-forge-gold px-4 py-2 rounded-sm backdrop-blur-md font-mono text-xs tracking-widest uppercase flex items-center gap-2 transition-all"
+             >
+                <Eye size={14} />
+                Terminal
+             </button>
+             <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500">
+                <Activity size={10} className={isThinking ? "text-forge-gold animate-pulse" : "text-stone-700"} />
+                <span>{isThinking ? "PROCESSING_FATE" : "AWAITING_INPUT"}</span>
              </div>
           </div>
+        </div>
 
-          <div className="flex-1 max-w-2xl space-y-8 pt-10">
-             <h2 className="font-display text-3xl text-forge-gold border-b border-stone-800 pb-4">Social Web</h2>
-             <NetworkGraph nodes={gameState.nodes} links={gameState.links} />
+        {/* LAYER 3: BOTTOM NARRATIVE CONSOLE */}
+        <div className="absolute bottom-0 left-0 right-0 z-30 h-[30vh] md:h-[35vh] flex flex-col justify-end pb-4 md:pb-8">
+          <div className="w-full h-full max-w-7xl mx-auto px-4 md:px-12 flex gap-8 items-end">
+             <NarrativeLog 
+               logs={logs} 
+               thinking={isThinking} 
+               choices={choices}
+               onChoice={handleAction}
+             />
           </div>
         </div>
-      )}
 
-      <Grimoire 
-        isOpen={isGrimoireOpen} 
-        onClose={() => setIsGrimoireOpen(false)} 
-        onResult={handleGrimoireResult}
-        gameState={gameState}
-      />
+        {/* OVERLAYS: MENU / STATS */}
+        {isMenuOpen && (
+          <div className="absolute inset-0 z-50 bg-black/98 backdrop-blur-xl p-8 animate-fade-in flex flex-col md:flex-row gap-12 overflow-y-auto">
+            <button onClick={() => setIsMenuOpen(false)} className="absolute top-6 right-6 text-stone-500 hover:text-forge-gold transition-colors"><X /></button>
+            
+            <div className="flex-1 max-w-md space-y-8 pt-10">
+               <h2 className="font-display text-3xl text-forge-gold border-b border-forge-gold/30 pb-4">Subject Metrics</h2>
+               <StatusLedger ledger={gameState.ledger} />
+               <div className="font-mono text-xs text-stone-500 space-y-2 p-4 border border-stone-900 bg-stone-900/20">
+                  <p>TURN_CYCLE: {gameState.turn}</p>
+                  <p>CURRENT_SECTOR: {gameState.location}</p>
+                  <p>SYSTEM_STATUS: NOMINAL</p>
+               </div>
+            </div>
 
-    </div>
+            <div className="flex-1 max-w-2xl space-y-8 pt-10">
+               <h2 className="font-display text-3xl text-forge-gold border-b border-forge-gold/30 pb-4">Social Web</h2>
+               <NetworkGraph nodes={gameState.nodes} links={gameState.links} />
+            </div>
+          </div>
+        )}
+
+        <Grimoire 
+          isOpen={isGrimoireOpen} 
+          onClose={() => setIsGrimoireOpen(false)} 
+          onResult={handleGrimoireResult}
+          gameState={gameState}
+        />
+
+      </div>
+    </DistortionLayer>
   );
 };
 

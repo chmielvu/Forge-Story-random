@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { GraphNode, GraphLink, CharacterId } from '../types';
@@ -24,7 +23,6 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links }) => {
       .attr("viewBox", [0, 0, width, height]);
 
     // CRITICAL FIX: Deep clone data to prevent D3 from mutating React props/state
-    // This fixes the "node not found" error on re-renders
     const simulationNodes = JSON.parse(JSON.stringify(nodes));
     const simulationLinks = JSON.parse(JSON.stringify(links));
 
@@ -38,24 +36,24 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links }) => {
     // Render Links
     const link = svg.append("g")
       .attr("stroke", "#44403c")
-      .attr("stroke-opacity", 0.6)
+      .attr("stroke-opacity", 0.4)
       .selectAll("line")
       .data(simulationLinks)
       .join("line")
-      .attr("stroke-width", (d: any) => Math.sqrt(d.weight) * 1.5);
+      .attr("stroke-width", (d: any) => Math.sqrt(d.weight) * 1.2);
 
     // Render Nodes
     const node = svg.append("g")
-      .attr("stroke", "#fff")
+      .attr("stroke", "#000")
       .attr("stroke-width", 1.5)
       .selectAll("circle")
       .data(simulationNodes)
       .join("circle")
-      .attr("r", (d: any) => d.group === 'subject' ? 10 : 15)
+      .attr("r", (d: any) => d.group === 'subject' ? 8 : 12)
       .attr("fill", (d: any) => {
         if (d.id === CharacterId.PLAYER) return "#e7e5e4";
-        if (d.group === 'faculty') return "#facc15"; // Gold for Faculty (was Crimson)
-        return "#b45309"; // Darker Gold for Prefects
+        if (d.group === 'faculty') return "#facc15"; // Gold
+        return "#ca8a04"; // Darker Gold
       })
       .call(drag(simulation) as any);
 
@@ -66,8 +64,8 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links }) => {
       .join("text")
       .text((d: any) => d.label)
       .attr("font-size", "10px")
-      .attr("fill", "#a8a29e")
-      .attr("dx", 18)
+      .attr("fill", "#78716c")
+      .attr("dx", 15)
       .attr("dy", 4)
       .attr("font-family", "JetBrains Mono");
 
@@ -115,7 +113,6 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links }) => {
         .on("end", dragended);
     }
 
-    // Cleanup function
     return () => {
       simulation.stop();
     };
@@ -123,9 +120,9 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links }) => {
   }, [nodes, links]);
 
   return (
-    <div className="w-full h-64 bg-black border border-stone-800 rounded-lg relative">
+    <div className="w-full h-64 bg-black border border-stone-800 rounded-sm relative">
        <div className="absolute top-2 left-2 text-xs font-mono text-forge-subtle tracking-widest z-10 pointer-events-none">
-        NETWORKX::RELATION_MATRIX
+        RELATION_MATRIX_V4
       </div>
       <svg ref={svgRef} className="w-full h-full" />
     </div>
