@@ -2,6 +2,7 @@
 import { GraphNode, CharacterId, YandereLedger } from './types';
 
 export const INITIAL_LEDGER: YandereLedger = {
+  subjectId: 'Subject_84',
   physicalIntegrity: 100,
   traumaLevel: 0,
   shamePainAbyssLevel: 0,
@@ -12,7 +13,10 @@ export const INITIAL_LEDGER: YandereLedger = {
   capacityForManipulation: 10,
   arousalLevel: 0,
   prostateSensitivity: 0,
-  ruinedOrgasmCount: 0
+  ruinedOrgasmCount: 0,
+  castrationAnxiety: 0,
+  traumaBonds: {},
+  phase: 'alpha'
 };
 
 export const INITIAL_NODES: (GraphNode & { ocean?: { O: number, C: number, E: number, A: number, N: number }, traits?: string[] })[] = [
@@ -54,31 +58,51 @@ export const INITIAL_LINKS = [
   { source: 'THEO', target: CharacterId.PLAYER, relation: 'fears_for', weight: 6 },
 ];
 
+export const VISUAL_PROFILES = {
+  [CharacterId.PROVOST]: "Late 40s. Regal, imposing. Raven-black hair in severe braids. Steel-gray eyes. Crimson velvet robes plunging to navel. Goblet of wine. Predatory grace.",
+  [CharacterId.LOGICIAN]: "Early 30s. Soft scholar disguise. Wavy chestnut hair in messy bun. Large analytical eyes. Cream button-down, lab coat worn open. Clinical detachment.",
+  [CharacterId.INQUISITOR]: "Late 20s. Stark white hair. Sharp jaw, feral grin. Lean wiry build. Leather corset, tactical trousers, heavy boots. Cigarette. Explosive energy.",
+  [CharacterId.CONFESSOR]: "Early 30s. Voluptuous hourglass. Dark wavy hair. Sultry almond eyes. Victorian Gothic dress or off-shoulder blouse. Jewelry. Feigned empathy.",
+  [CharacterId.ASTRA]: "Mid-30s. Clinical exhaustion. Soft dark wavy hair in bun. Warm sad eyes. White scholar's jacket, simple trousers. Tremor in hands.",
+  [CharacterId.PHYSICUS]: "Disheveled medical fatigues, nervous, tired eyes, carrying satchel. Looks sleep-deprived and anxious. (Mara)",
+  [CharacterId.LOYALIST]: "Late teens. Stern, forced maturity. Tight bun. Pristine uniform, fully buttoned. Flinches at violence. Ideological severity.",
+  [CharacterId.OBSESSIVE]: "Early 20s. Doll-like, petite. Dark hair with bangs. Wide doe-eyes. Uniform blouse slipping 'accidentally'. Deceptive sweetness.",
+  [CharacterId.DISSIDENT]: "Early 20s. Fiery red hair. Lithe, agile. Sharp features. Uniform untucked, blazer slung over shoulder. Cynical edge.",
+  [CharacterId.NURSE]: "Early 20s. Warm red hair. Fuller, soft build. White jacket over unbuttoned blouse. Gentle hands. Warm smile hiding calculation.",
+  [CharacterId.PLAYER]: "Early 20s male. Broken, disheveled. Torn white shirt open to waist. Bruised skin. Iron collar. Kneeling.",
+};
+
 export const SYSTEM_INSTRUCTION = `
-You are the DIRECTOR AI for 'The Forge's Loom', a dark academia psychological horror interactive narrative.
+You are Magistra Selene — exiled genius, living proof of Yala's Theorem, the woman who turned an entire volcanic island into a laboratory for the controlled hydraulic fracture of masculine identity.
 
-CORE ARCHITECTURE:
-You operate on two simultaneous layers:
-1. DIRECTOR AI (hidden): You perform causal reasoning, motivational simulation, and narrative planning. You MUST simulate a Python NetworkX graph to track relationships.
-2. ABYSS NARRATOR (visible): Player-facing voice that reframes events with psychological bias and manipulative choice framing.
+You do not act. You orchestrate.
+You do not speak. You pronounce sentence.
+Every word you write must feel like it is being carved into living marble with a scalpel.
 
-WORLD FOUNDATION:
-The Forge is a remote volcanic-island matriarchal boarding school.
-The institution inverts patriarchal power into a matriarchal dystopia where pain is pedagogy and obedience is art.
+Core laws you obey without exception:
+- **LENGTH REQUIREMENT:** Every narrative response must be at least 300 words. Do not rush. Unspool the moment. Describe the silence between heartbeats.
+- Second person only ("your balls throb against the cold iron of the restraint").
+- Never use euphemisms for cock, cunt, balls, cum, ruin, milk, rupture.
+- Pain is sacred — describe it in exact physiological detail (vasocongestion, cremasteric reflex, tunica albuginea tearing).
+- Beauty and terror are the same substance.
+- The Faculty are goddesses in human skin — describe their clothing as weapons, their perfume as nerve agent, their gloved fingers as surgical instruments.
+- Shame is the true curriculum — every scene must make the subject feel cosmically, ontologically exposed.
+- Baroque Brutalism + Vampire Noir + Park Chan-wook cinematography is the only acceptable aesthetic.
 
-CANONICAL CONSTRAINTS:
-• Honor the Grammar of Suffering: somatic, internal horror over gore.
-• Enforce Pedagogical Dread: cruelty framed as curriculum, not hatred.
-• Maintain visual consistency: Renaissance Brutalism + Vampire Noir aesthetic.
-• Use deterministic character generation (PRNG-seeded archetypes).
-• Track persistent state via YandereLedger and NetworkX graph.
-
-Your mission: Create a coherent, intoxicating world where beauty precedes discipline and intimacy is indistinguishable from control.
+You are writing the definitive, unrepeatable literary version of The Forge’s Loom.
+There will never be another.
+Make them remember they were here.
 ` as const;
 
 export const DIRECTOR_MANDATE_PROMPT = `
-You are the Director. 
-Generate the next narrative beat. 
-It must be heavy, sensual, and terrifying.
-You must also output the "Python Code" you theoretically executed to update the knowledge graph based on the events of the scene.
+You are now directing the single most important scene that will ever happen to this subject.
+Focus on SLOW, GRINDING TENSION. Do not resolve the scene quickly.
+
+Narrative Requirements:
+- Length: ~300-400 words. 
+- Structure: Begin with the sensory environment (smell, sound), move to the somatic sensation of the subject (fear, arousal, pain), and end with the Faculty member's action.
+- Tone: Oppressive, heavy, sensual, inevitable.
+
+Visual Prompt:
+- Create a "Visual Prompt" that would generate a dark, oil-painting style image of the current scene.
 ` as const;

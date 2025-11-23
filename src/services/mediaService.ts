@@ -1,32 +1,229 @@
 
 import { GoogleGenAI, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
-import { YandereLedger } from "../types";
+import { YandereLedger, PrefectDNA, CharacterId } from "../types";
+import { VISUAL_PROFILES } from "../constants";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// --- AUDIO ENGINE: EMOTIONAL VOICE SELECTION ---
+// --- VISUAL DNA MANDATES ---
+
+const VISUAL_MANDATE = {
+  style: "grounded dark erotic academia + baroque brutalism + vampire noir + intimate psychological horror + rembrandt caravaggio lighting",
+  technical: {
+    camera: "intimate 50mm or 85mm close-up",
+    lighting: "single gaslight, extreme chiaroscuro, shadows in cleavage and slits"
+  },
+  mood: "predatory intimacy, clinical amusement, suffocating dread, weaponized sexuality",
+  quality: "restrained masterpiece oil painting, no fantasy elements, high detail on skin texture and fabric strain",
+  negative_prompt: [
+    "bright colors", "cheerful", "modern architecture", "soft focus", "natural daylight", 
+    "explicit nudity", "graphic violence", "anime", "cartoon", "3d render", "low res"
+  ]
+};
+
+const ARCHETYPE_VISUAL_MAP: Record<string, { mood?: string, physique?: string, face?: string, attire?: string }> = {
+    'The Zealot': { mood: "stern, judgmental, brittle", physique: "rigid posture", face: "severe, tight bun", attire: "pristine uniform, fully buttoned, no skin showing" },
+    'The Yandere': { mood: "unnerving stillness, manic-pixie-nightmare", physique: "petite, delicate, deceptively weak", face: "wide doe-eyes, dark bangs, flat affect", attire: "uniform with subtle disarray, choker" },
+    'The Dissident': { mood: "guarded, intense, cynical", physique: "lithe, agile, tense", face: "sharp features, fiery hair, smudged makeup", attire: "untucked blouse, blazer slung over shoulder" },
+    'The Nurse': { mood: "warm, clinical, false-comfort", physique: "soft, fuller curves, maternal", face: "kind open face, flushed cheeks", attire: "white medical jacket over unbuttoned blouse" },
+    'The Sadist': { mood: "cruel, kinetic, exhilarated", physique: "athletic, tense, coiled", face: "manic grin, dilated pupils", attire: "leather gloves, holding riding crop" },
+    'The Perfectionist': { mood: "neurotic, precise, anxious", physique: "immaculate, stiff", face: "pinched, focused, sweat-bead", attire: "perfectly pressed uniform, measuring tape" },
+    'The Voyeur': { mood: "detached, observant, hungry", physique: "unassuming, shadow-blending", face: "glasses, watchful eyes, lip-biting", attire: "hiding in oversized blazer, notebook" },
+    'The Martyr': { mood: "suffering, beatific, ecstatic", physique: "gaunt, exhausted, trembling", face: "eyes rolled back, pale, tear-stained", attire: "stained or torn uniform, exposed collarbone" },
+    'The Parasite': { mood: "mimetic, hollow, clingy", physique: "shadowy, leaning", face: "shifting expression, mirroring", attire: "copies nearest authority figure exactly" },
+    'The Wildcard': { mood: "chaotic, manic, unpredictable", physique: "restless, twitchy", face: "wild eyes, smirk, smeared lipstick", attire: "mismatched accessories, jewelry" },
+    'The Defector': { mood: "paranoid, furtive, terrified", physique: "hunched, protective", face: "darting eyes, sweat-slicked", attire: "ready to run, bag packed" },
+    'The Mimic': { mood: "uncanny, blank, artificial", physique: "average, unremarkable", face: "placid mirror, unblinking", attire: "standard uniform, flawless" },
+    'The Brat Princess': { mood: "haughty, entitled, bratty", physique: "curvaceous, poised, displaying assets", face: "sneer, flawless makeup, bored", attire: "floral tiara, silk ribbons, shorter skirt" },
+    'The Siren': { mood: "languid, wet, heavy", physique: "slender, sinuous, arched", face: "wet-lips, heavy lids, flushed", attire: "off-shoulder gown, sea-glass jewelry, translucent fabric" },
+    'The Psychologist': { mood: "analytical, cold, probing", physique: "composed, still, seated", face: "calm gaze, glasses, assessing", attire: "leather notebook, pen tucked, pristine cuffs" },
+    'The Contender': { mood: "aggressive, sharp, competitive", physique: "muscular, coiled, imposing", face: "determined, scarred, clenched jaw", attire: "scuffed boots, cropped jacket, sleeves rolled" }
+};
+
+// --- VISUAL PROMPT BUILDERS ---
+
+export function buildVisualPrompt(
+  target: PrefectDNA | CharacterId, 
+  sceneContext: string,
+  ledger?: YandereLedger
+): string {
+  
+  let subject: any = {};
+  let moodModifiers: string[] = ["clinical-chiaroscuro"];
+  
+  // Clone strict mandates to avoid mutation
+  const promptTechnical = { ...VISUAL_MANDATE.technical };
+
+  // 1. RESOLVE SUBJECT
+  if (typeof target === 'string') {
+    // FACULTY or PLAYER
+    const profile = VISUAL_PROFILES[target] || "Figure in shadow";
+    const name = target.replace(/_/g, " ");
+    
+    subject = {
+      name: name,
+      role: target.includes('Subject') ? "Subject" : "Faculty",
+      description: profile, 
+      physique: profile.includes("Regal") ? "statuesque, imposing" : "defined, athletic",
+      attire: profile.includes("velvet") ? "crimson velvet robes" : "dark academic formal",
+    };
+
+    if (target === CharacterId.PLAYER) {
+      moodModifiers.push("vulnerable", "exposed", "sweat-slicked", "kneeling", "submissive");
+    } else {
+      moodModifiers.push("dominant", "predatory", "elegant", "looming", "control");
+    }
+
+  } else {
+    // PREFECT (DNA)
+    const map = ARCHETYPE_VISUAL_MAP[target.archetype] || {};
+    subject = {
+      name: target.displayName,
+      role: "Prefect",
+      archetype: target.archetype,
+      physique: map.physique || "lean",
+      face: map.face || "distinct features",
+      attire: map.attire || "dark academic uniform"
+    };
+
+    moodModifiers.push(map.mood || "febrile");
+    
+    // Inject Trait-Based Visuals
+    const { cruelty, charisma, submission_to_authority, ambition, cunning } = target.traitVector;
+
+    // Charisma
+    if (charisma > 0.8) moodModifiers.push("mesmeric-gaze", "magnetic-presence", "glowing-skin");
+    else if (charisma < 0.3) moodModifiers.push("unnoticed", "plain", "blending-in");
+
+    // Cruelty
+    if (cruelty > 0.7) moodModifiers.push("cold-sneer", "predatory-stance", "holding-instrument", "blood-flecked");
+    else if (cruelty < 0.3) moodModifiers.push("hesitant", "soft-touch", "worried-brow", "gentle-hands");
+
+    // Submission
+    if (submission_to_authority > 0.8) moodModifiers.push("head-bowed", "hands-clasped", "eyes-downcast", "rigid-obedience");
+    else if (submission_to_authority < 0.3) moodModifiers.push("chin-up", "defiant-glance", "slouching", "disordered-uniform");
+
+    // Ambition
+    if (ambition > 0.8) moodModifiers.push("chin-raised", "intense-focus", "sharp-silhouette", "calculating");
+    
+    // Cunning
+    if (cunning > 0.8) moodModifiers.push("calculating-eyes", "shadowed-face", "half-smile", "watchful");
+
+    // Drive/Weakness Hints (Subtle)
+    if (target.drive.includes("Sabotage") || target.drive.includes("Undermine")) moodModifiers.push("hiding-something", "duplicitous-shadows");
+    if (target.secretWeakness.includes("Horrified") || target.secretWeakness.includes("Empathy")) moodModifiers.push("tear-stained-cheek", "trembling-hands");
+  }
+
+  // 2. RESOLVE CONTEXT (Enhanced)
+  let environment = "dimly lit stone corridor, flickering gaslight";
+  const lowerContext = sceneContext.toLowerCase();
+  
+  if (lowerContext.includes("dock") || lowerContext.includes("arrival")) environment = "volcanic rock dock, stormy sky, weeping stone, ocean spray, iron gates, monolithic architecture";
+  else if (lowerContext.includes("office") || lowerContext.includes("study") || lowerContext.includes("selene")) environment = "mahogany desk, velvet curtains, wine goblet, oppressive luxury, bookshelves, fireplace, persian rugs";
+  else if (lowerContext.includes("infirmary") || lowerContext.includes("clinic") || lowerContext.includes("lab") || lowerContext.includes("lysandra")) environment = "tiled walls, surgical tools, sterile light, medical cabinet, anatomical charts, stainless steel, cold atmosphere";
+  else if (lowerContext.includes("cell") || lowerContext.includes("cage") || lowerContext.includes("dungeon")) environment = "rusted iron bars, damp straw, stone walls, claustrophobic, chains, dripping water, oubliette";
+  else if (lowerContext.includes("lecture") || lowerContext.includes("hall") || lowerContext.includes("theater") || lowerContext.includes("rotunda")) environment = "tiered lecture hall, chalkboard, imposing podium, dust motes, spotlights, panopticon layout";
+  else if (lowerContext.includes("bath") || lowerContext.includes("pool") || lowerContext.includes("water")) environment = "tiled bathhouse, steam, stagnant water, echoing, cracked tiles, roman columns";
+  else if (lowerContext.includes("garden") || lowerContext.includes("greenhouse") || lowerContext.includes("apothecary")) environment = "overgrown nightshade, glass bottles, dried herbs, humid, earthy smell, poisonous flowers";
+  else if (lowerContext.includes("dorm") || lowerContext.includes("quarters")) environment = "spartan room, iron bed frame, moonlight through window, shadows, personal artifacts";
+  else if (lowerContext.includes("corridor") || lowerContext.includes("hallway")) environment = "endless stone corridor, flickering torches, arched ceiling, weeping walls, distant footsteps";
+
+  // 3. RESOLVE PSYCHOMETRICS (Trauma Overlay -> Cinematography)
+  if (ledger) {
+    // Trauma -> Camera instability & Distortion
+    if (ledger.traumaLevel > 40) promptTechnical.camera = "handheld, shaky, slight dutch angle, 50mm";
+    if (ledger.traumaLevel > 70) promptTechnical.camera = "extreme close-up, disorienting fish-eye, blurred edges, panic, sweaty-lens";
+    
+    // Shame -> Lighting exposure
+    if (ledger.shamePainAbyssLevel > 50) promptTechnical.lighting = "high-contrast, harsh shadows";
+    if (ledger.shamePainAbyssLevel > 80) {
+        promptTechnical.lighting = "harsh spotlight from above, surrounding pitch black, exposed";
+        moodModifiers.push("humiliated-posture", "tearing-up", "flushed-skin", "avoiding-eye-contact", "covering-self");
+    }
+
+    // Compliance -> Body language
+    if (ledger.complianceScore > 70) moodModifiers.push("broken-posture", "pliant", "doll-like", "slack-jawed", "empty-eyes");
+
+    // Arousal -> Physiological cues
+    if (ledger.arousalLevel > 60) moodModifiers.push("heavy-breathing", "dilated-pupils", "fabric-tension", "flushed-chest", "sweat-beads", "biting-lip");
+    
+    // Hope -> Lighting color
+    if (ledger.hopeLevel < 20) promptTechnical.lighting += ", cold blue tones, desaturated, hopeless";
+    else if (ledger.hopeLevel > 80) promptTechnical.lighting += ", warm candle glow, golden accents, defiant spark";
+  }
+
+  // Constructing the JSON object as mandated
+  const promptObject = {
+    ...VISUAL_MANDATE,
+    technical: promptTechnical,
+    subject: subject,
+    specific_mood: moodModifiers.filter(Boolean).join(", "),
+    scene_context: sceneContext.substring(0, 300),
+    environment: environment, 
+    composition: "close-up waist-up, three-quarter pose, cinematic, masterpiece"
+  };
+
+  return JSON.stringify(promptObject, null, 2);
+}
+
+// --- IMAGEN 3 GENERATION ---
+
+export const generateNarrativeImage = async (visualPromptRaw: string): Promise<string | undefined> => {
+  
+  // Enforcing the JSON Structure Mandate
+  const structuredPrompt = {
+    ...VISUAL_MANDATE,
+    scene_description: visualPromptRaw,
+    environment_directives: "raw concrete chamber, leather books, surgical tools, faint wine goblet, damp stone walls",
+    character_directives: "Female characters: White shirts half-unbuttoned revealing lace bra/cleavage, high slits, sheer stockings. Male characters: Disheveled, sweating, open shirts. Predatory expressions.",
+    lighting_directives: "Single gaslight source, deep shadows, volumetric fog, rim lighting on sweat/skin."
+  };
+
+  // Flattening for the model to interpret as a strict directive
+  const finalPrompt = `
+    GENERATE AN IMAGE BASED ON THIS STRICT JSON CONFIGURATION:
+    \`\`\`json
+    ${JSON.stringify(structuredPrompt, null, 2)}
+    \`\`\`
+    
+    CRITICAL VISUAL RULES:
+    1. ART STYLE: Baroque Brutalism + Vampire Noir. Oil painting aesthetic.
+    2. LIGHTING: Deep Chiaroscuro. 
+    3. NO FANTASY ELEMENTS. Grounded, gritty, erotic realism.
+  `;
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image', 
+      contents: { parts: [{ text: finalPrompt }] },
+      config: {
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ],
+      }
+    });
+
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData?.data) {
+        return part.inlineData.data;
+      }
+    }
+    return undefined;
+  } catch (error) {
+    console.error("⚠️ Image generation failed:", error);
+    return undefined;
+  }
+};
+
+// --- AUDIO ENGINE ---
 
 const selectVoiceForNarrative = (narrative: string): string => {
   const lower = narrative.toLowerCase();
-  
-  // 1. Emotional Overrides (Tone modulation via preset selection)
-  // Anger/Aggression -> Fenrir (Rough, deep)
-  if (lower.includes('shout') || lower.includes('scream') || lower.includes('fury') || lower.includes('rage') || lower.includes('snarl')) return 'Fenrir';
-  
-  // Seduction/Intimacy -> Kore (Soft, breathy)
-  if (lower.includes('whisper') || lower.includes('moan') || lower.includes('caress') || lower.includes('purr') || lower.includes('breath against')) return 'Kore';
-  
-  // Clinical/Detached -> Puck (Clear, somewhat lighter)
-  if (lower.includes('analyze') || lower.includes('data') || lower.includes('calmly') || lower.includes('note that')) return 'Puck';
-
-  // 2. Character Identity Defaults
-  if (lower.includes('selene') || lower.includes('provost')) return 'Zephyr'; // Commanding
-  if (lower.includes('petra') || lower.includes('inquisitor')) return 'Fenrir'; // Aggressive
-  if (lower.includes('calista') || lower.includes('confessor')) return 'Kore'; // Seductive
-  if (lower.includes('lysandra') || lower.includes('logician')) return 'Puck'; // Analytical
-  if (lower.includes('anya') || lower.includes('nurse')) return 'Lyria'; // Deceptive warmth
-  
-  return 'Zephyr'; // Fallback Narrator
+  if (lower.includes('shout') || lower.includes('fury') || lower.includes('petra')) return 'Fenrir';
+  if (lower.includes('whisper') || lower.includes('calista') || lower.includes('kaelen')) return 'Kore';
+  if (lower.includes('analyze') || lower.includes('lysandra') || lower.includes('elara')) return 'Puck';
+  return 'Zephyr'; // Selene/Default
 };
 
 export const generateSpeech = async (narrative: string): Promise<string | undefined> => {
@@ -53,33 +250,18 @@ export const generateSpeech = async (narrative: string): Promise<string | undefi
 
 // --- VEO 3.1 VIDEO GENERATION ---
 
-/**
- * Generates a short video loop using Veo 3.1 based on an initial image and a prompt.
- * Uses dynamic prompt injection for atmospheric motion.
- */
 export const animateImageWithVeo = async (
   imageB64: string, 
   visualPrompt: string, 
   aspectRatio: '16:9' | '9:16' = '16:9'
 ): Promise<string | undefined> => {
   try {
-    console.log("🎬 Starting Veo 3.1 Generation...");
-    
-    // Construct a motion-specific prompt based on the structured visual prompt
     const motionPrompt = `
-      Cinematic slow motion, extreme high fidelity, 8k resolution.
-      Bring this specific scene to life with subtle, atmospheric movement.
-      
-      SCENE CONTEXT:
-      ${visualPrompt}
-
-      MOTION DIRECTIVES:
-      - Focus on micro-movements: fabric breathing, hair shifting, dust motes floating.
-      - Lighting dynamics: flickering candlelight, shifting shadows, god rays.
-      - Atmosphere: Oppressive, psychological horror, "Park Chan-wook" style.
-      - Camera: Slow, creeping pan or subtle zoom in.
-      - NO sudden movements or morphing. Keep it grounded and realistic.
-    `.trim();
+      Cinematic slow motion, psychological horror, atmospheric.
+      Scene: ${visualPrompt}
+      Directives: Micro-movements of breathing and fabric. Flickering light. Dust motes. No morphing.
+      Aesthetic: ${VISUAL_MANDATE.style}
+    `;
 
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-fast-generate-preview',
@@ -95,23 +277,17 @@ export const animateImageWithVeo = async (
       }
     });
 
-    // Poll for completion (timeout after 60s)
     let attempts = 0;
     while (!operation.done && attempts < 12) {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s
+      await new Promise(resolve => setTimeout(resolve, 5000));
       operation = await ai.operations.getVideosOperation({ operation: operation });
       attempts++;
-      console.log(`...Veo processing: ${attempts * 5}s`);
     }
 
-    if (!operation.done) {
-      console.warn("Veo generation timed out.");
-      return undefined;
-    }
+    if (!operation.done) return undefined;
 
     const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (videoUri) {
-      // Fetch the actual video bytes using the URI + API Key
       const response = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
       const blob = await response.blob();
       return new Promise((resolve, reject) => {
@@ -128,82 +304,6 @@ export const animateImageWithVeo = async (
   }
 };
 
-// --- IMAGEN 3 GENERATION ---
-
-export const generateNarrativeImage = async (visualPrompt: string): Promise<string | undefined> => {
-  // Enhance the prompt with specific aesthetic mandates if they aren't already present
-  // The Director provides the core scene; we provide the "Camera & Film Stock"
-  const styleSuffix = `
-    . Art Direction: Baroque Brutalism meets Vampire Noir. 
-    Lighting: High contrast Chiaroscuro (Caravaggio style), volumetric lighting, deep blacks, rich golds and crimsons.
-    Texture: Photorealistic, highly detailed surfaces (velvet, wet stone, cold iron, skin pores).
-    Quality: 8k resolution, cinematic composition, masterpiece, oil painting aesthetic.
-  `.trim();
-  
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview', 
-      contents: { parts: [{ text: `${visualPrompt} ${styleSuffix}` }] },
-      config: {
-        imageConfig: {
-          aspectRatio: '16:9',
-          imageSize: '1K'
-        },
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ],
-      }
-    });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData?.data) {
-        return part.inlineData.data;
-      }
-    }
-    return undefined;
-  } catch (error) {
-    console.error("⚠️ Image generation failed:", error);
-    return undefined;
-  }
-};
-
-// --- UTILITY: DISTORTION ---
-
-export const distortImage = async (imageB64: string, instruction: string): Promise<string | undefined> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: imageB64,
-              mimeType: 'image/jpeg',
-            },
-          },
-          { text: instruction },
-        ],
-      },
-      config: {
-        responseModalities: [Modality.IMAGE],
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ],
-      },
-    });
-
-    const part = response.candidates?.[0]?.content?.parts?.[0];
-    if (part?.inlineData) {
-      return part.inlineData.data;
-    }
-    return undefined;
-  } catch (e) {
-    console.error("Image Distortion Failed:", e);
-    return undefined;
-  }
-};
-
 // --- ORCHESTRATOR ---
 
 export const generateEnhancedMedia = async (
@@ -212,27 +312,19 @@ export const generateEnhancedMedia = async (
   ledger: YandereLedger
 ): Promise<{ audioData?: string, imageData?: string, videoData?: string }> => {
   
-  // 1. Start Image Generation
   const imagePromise = generateNarrativeImage(visualPrompt);
-
-  // 2. Start Audio Generation
   const audioPromise = generateSpeech(narrative);
 
-  // 3. Conditional Video Generation (Veo 3.1)
-  // Only trigger if trauma or shame is high to save resources and create impact
+  // Trigger video only on high intensity moments to save tokens/time
   let videoPromise: Promise<string | undefined> = Promise.resolve(undefined);
   
-  if (ledger.traumaLevel > 70 || ledger.shamePainAbyssLevel > 80) {
+  if (ledger.traumaLevel > 80 || ledger.shamePainAbyssLevel > 80) {
     videoPromise = (async () => {
       try {
-        // We need the image first to animate it
         const imageBase64 = await imagePromise;
         if (!imageBase64) return undefined;
-
-        // Trigger Veo using the same visual prompt context
         return await animateImageWithVeo(imageBase64, visualPrompt, '16:9');
       } catch (e) {
-        console.warn("Video generation skipped or failed:", e);
         return undefined;
       }
     })();
@@ -246,3 +338,37 @@ export const generateEnhancedMedia = async (
     videoData: videoBytes
   };
 };
+
+export const distortImage = async (imageB64: string, instruction: string): Promise<string | undefined> => {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                data: imageB64,
+                mimeType: 'image/jpeg',
+              },
+            },
+            { text: instruction },
+          ],
+        },
+        config: {
+          responseModalities: [Modality.IMAGE],
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ],
+        },
+      });
+  
+      const part = response.candidates?.[0]?.content?.parts?.[0];
+      if (part?.inlineData) {
+        return part.inlineData.data;
+      }
+      return undefined;
+    } catch (e) {
+      console.error("Image Distortion Failed:", e);
+      return undefined;
+    }
+  };

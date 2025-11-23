@@ -4,29 +4,13 @@ export enum CharacterId {
   LOGICIAN = 'Dr_Lysandra',
   INQUISITOR = 'Petra',
   CONFESSOR = 'Calista',
+  ASTRA = 'Dr_Astra',
+  PHYSICUS = 'Mara_Curatus',
   NURSE = 'Anya',
   PLAYER = 'Subject_84',
   OBSESSIVE = 'Kaelen',
   LOYALIST = 'Elara',
   DISSIDENT = 'Rhea'
-}
-
-export interface YandereLedger {
-  // Physical
-  physicalIntegrity: number;
-  // Core Psyche
-  traumaLevel: number;
-  shamePainAbyssLevel: number;
-  hopeLevel: number;
-  complianceScore: number;
-  // Granular Metrics
-  fearOfAuthority: number;      // Governs hesitation/flinching
-  desireForValidation: number;  // Governs susceptibility to 'Good Boy' tactics
-  capacityForManipulation: number; // Governs ability to lie/plot
-  // Physiological & Sexual Metrics
-  arousalLevel: number;
-  prostateSensitivity: number;
-  ruinedOrgasmCount: number;
 }
 
 export interface GraphNode {
@@ -52,10 +36,29 @@ export interface LogEntry {
   type: 'system' | 'narrative' | 'thought' | 'tool_output';
   content: string;
   visualContext?: string; 
-  // Media fields
-  imageData?: string; // Base64 encoded image
-  audioData?: string; // Base64 encoded PCM audio
-  videoData?: string; // Base64 data URL for video
+  imageData?: string; 
+  audioData?: string; 
+  videoData?: string; 
+}
+
+// --- CORE GAME STATE ---
+
+export interface YandereLedger {
+  subjectId: string;
+  physicalIntegrity: number;
+  traumaLevel: number;
+  shamePainAbyssLevel: number;
+  hopeLevel: number;
+  complianceScore: number;
+  fearOfAuthority: number;
+  desireForValidation: number;
+  capacityForManipulation: number;
+  arousalLevel: number;
+  prostateSensitivity: number;
+  ruinedOrgasmCount: number;
+  castrationAnxiety: number;
+  traumaBonds: Record<string, number>;
+  phase: 'alpha' | 'beta' | 'gamma';
 }
 
 export interface GameState {
@@ -66,13 +69,13 @@ export interface GameState {
   location: string;
 }
 
+// Legacy Director Output (UI Consumption)
 export interface DirectorOutput {
   thought_process: string;
   narrative: string;
   visual_prompt: string; 
   state_updates?: Partial<YandereLedger>;
-  // NetworkX Simulation
-  executed_code?: string; // The "Python" code executed
+  executed_code?: string;
   graph_updates?: {
     nodes_added?: GraphNode[];
     nodes_removed?: string[];
@@ -81,6 +84,40 @@ export interface DirectorOutput {
   };
   choices: string[];
 }
+
+// New Director Response Schema (PROMPT 6)
+export interface DirectorResponse {
+  scenePlan: {
+    planId: string;
+    selectedActions: Array<{
+      actorType: "faculty"|"prefect"|"player"|"system";
+      actorId: string;
+      actionType: string;
+      actionDetail: string;
+      targetId: string|null;
+      publicUtterance: string|null;
+    }>;
+    executionOrder: string[];
+    safetyFlags: string[];
+  };
+  ledgerDelta: Partial<YandereLedger>;
+  // Explicit graph delta for Director Prompt 6
+  graphDelta?: {
+      edges_added?: Array<{ source: string; target: string; relation: string; weight: number }>;
+      edges_removed?: Array<{ source: string; target: string }>;
+  };
+  publicRender: string;
+  directorDecisions: {
+    acceptedProposals: Array<{ origin: string; summary: string }>;
+    rejectedProposals: Array<{ origin: string; reason: string }>;
+    modifiedProposals: Array<{ origin: string; newProposal: string }>;
+  };
+  agentDirectives: Array<{ agentId: string; directiveType: string; payload: any }>;
+  visualAudioAssets: Array<{ id: string; visualPrompt: any; audioPrompt: any; seed: number }>;
+  debugTrace: string | null;
+  choices: string[];
+}
+
 
 export type ToolMode = 'ANALYZE' | 'REANIMATE' | 'DISTORT';
 
@@ -94,14 +131,175 @@ export type OceanTraits = {
   neuroticism: number;
 };
 
-export type AgentArchetype = 'DOMINANT' | 'ANALYTICAL' | 'SADISTIC' | 'NURTURING' | 'SUBVERSIVE';
+export type AgentArchetype = 'DOMINANT' | 'ANALYTICAL' | 'SADISTIC' | 'NURTURING' | 'SUBVERSIVE' | 'OBSESSIVE' | 'LOYALIST';
 
 export interface NPCAgentState {
   id: CharacterId;
   name: string;
   archetype: AgentArchetype;
   traits: OceanTraits;
-  voicePreset: 'Zephyr' | 'Puck' | 'Kore' | 'Fenrir';
+  visualSummary: string;
   currentIntent: string;
   obsessionLevel: number;
+}
+
+// --- NEW PREFECT SYSTEM ---
+
+export type PrefectArchetype = 
+  | 'The Zealot' | 'The Yandere' | 'The Dissident' | 'The Nurse'
+  | 'The Sadist' | 'The Perfectionist' | 'The Voyeur' | 'The Martyr'
+  | 'The Parasite' | 'The Wildcard' | 'The Defector' | 'The Mimic'
+  | 'The Brat Princess' | 'The Siren' | 'The Psychologist' | 'The Contender';
+
+export interface PrefectDNA {
+  id: string; 
+  displayName: string;
+  archetype: PrefectArchetype;
+  isCanon: boolean;
+  traitVector: {
+    cruelty: number;
+    charisma: number;
+    cunning: number;
+    submission_to_authority: number;
+    ambition: number;
+  };
+  drive: string;
+  secretWeakness: string;
+  favorScore: number;
+  relationships: Record<string, number>;
+  traumaBondLevel?: number;
+}
+
+export interface PrefectPrivateState {
+  hiddenGoals: string[];
+  grudges: Record<string, number>;
+  trust: Record<string, number>;
+  lastAction: string | null;
+  cooldowns: Record<string, number>;
+}
+
+export type PrefectAction = "speak"|"act"|"intervene"|"observe"|"research"|"plot"|"probe"|"seduce"|"punish"|"console"|"offerTrade"|"sabotage";
+
+export interface PrefectDecision {
+  prefectId: string;
+  action: PrefectAction;
+  actionDetail: string;
+  publicUtterance: string | null;
+  hiddenProposal: string | null;
+  targetId: string | null;
+  stateDelta: Partial<PrefectPrivateState> & { favorScoreDelta?: number };
+  confidence: number;
+}
+
+export interface PrefectThought {
+  agentId: string;
+  publicAction: string;
+  hiddenMotivation: string;
+  internalMonologue: string;
+  sabotageAttempt?: {
+    target: string;
+    method: string;
+    deniability: number;
+  };
+  allianceSignal?: {
+    target: string;
+    message: string;
+  };
+  emotionalState: {
+    paranoia: number;
+    desperation: number;
+    confidence: number;
+  };
+  secretsUncovered: string[];
+  favorScoreDelta: number;
+}
+
+// --- MARA & FACULTY SYSTEMS ---
+
+export interface MaraDNA {
+  id: string;
+  displayName: string;
+  archetype: string;
+  traitVector: {
+    cruelty: number;
+    charisma: number;
+    cunning: number;
+    submission_to_authority: number;
+    ambition: number;
+  };
+  drive: string;
+  secretWeakness: string;
+  favorScore: number;
+  relationships: Record<string, number>;
+  moralDecay: number;
+}
+
+export interface MaraThought {
+  publicAction: string;
+  hiddenDefiance: string;
+  internalMonologue: string;
+  documentedEvidence: string[];
+  moralDecay: number;
+  exitPlan: string;
+  subjectSupport?: {
+    target: string;
+    method: string;
+  };
+}
+
+export interface MaraContext {
+  moralDecay: number;
+  facultySuspicion: number;
+  location: string;
+  timeOfDay: string;
+  description: string;
+  facultyMood: string;
+  prefects: { name: string; favorScore: number }[];
+  playerTrauma: number;
+  recentRituals: string[];
+}
+
+export interface FacultyCollectiveOutput {
+  publicNarration: string;
+  facultyActions: Array<{
+    facultyId: "selene" | "lysandra" | "petra" | "calista" | "astra";
+    actionType: "observe"|"direct"|"intervene"|"authorize"|"challenge"|"record"|"sanction"|"console"|"assignPrefect"|"callTrial";
+    actionDetail: string;
+    targetId: string|null;
+    publicUtterance: string|null;
+    confidence: number;
+  }>;
+  privateBundle: {
+    seedUsed: number;
+    perFacultyPrivate: Record<string, { hiddenProposal: string|null, privateStateDelta: any }>;
+  };
+  ledgerUpdates: { delta: Partial<YandereLedger> };
+  visualCueHints: Array<{ assetType: string, promptTemplate: any, seed: number }>;
+  debugTrace: string|null;
+}
+
+export interface OrchestratorOutput {
+  prefectDecisions: PrefectDecision[];
+  maraThought: MaraThought;
+  facultyOutput: FacultyCollectiveOutput;
+  simulationLog: string;
+}
+
+export interface FilteredSceneContext {
+  description: string;
+  location: string;
+  timeOfDay: string;
+  otherPrefects: Array<{
+    name: string;
+    recentActions: string;
+    favorScore: number;
+    perceivedThreat: number;
+  }>;
+  yourFavorScore: number;
+  yourRecentActions: string[];
+  facultyPresent: string[];
+  facultyMood: string;
+  playerTrauma: number;
+  recentRituals: string[];
+  sceneFlags: string[];
 }
