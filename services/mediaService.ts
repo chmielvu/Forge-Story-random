@@ -1,6 +1,7 @@
 import { GoogleGenAI, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { YandereLedger, PrefectDNA, CharacterId } from "../types";
 import { VISUAL_PROFILES } from "../constants";
+import { BEHAVIOR_CONFIG } from "../config/behaviorTuning"; // Import behavior config
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -180,6 +181,11 @@ export function buildVisualPrompt(
 
 export const generateNarrativeImage = async (visualPromptRaw: string): Promise<string | undefined> => {
   
+  if (!BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableImages) {
+    console.log("[mediaService] Image generation is disabled by config.");
+    return Promise.resolve(undefined);
+  }
+
   // Enforcing the JSON Structure Mandate
   const structuredPrompt = {
     ...VISUAL_MANDATE,
@@ -237,6 +243,11 @@ const selectVoiceForNarrative = (narrative: string): string => {
 };
 
 export const generateSpeech = async (narrative: string): Promise<string | undefined> => {
+  if (!BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableAudio) {
+    console.log("[mediaService] Audio generation is disabled by config.");
+    return Promise.resolve(undefined);
+  }
+
   try {
     const voiceName = selectVoiceForNarrative(narrative);
     const response = await ai.models.generateContent({
@@ -265,6 +276,11 @@ export const animateImageWithVeo = async (
   visualPrompt: string, 
   aspectRatio: '16:9' | '9:16' = '16:9'
 ): Promise<string | undefined> => {
+  if (!BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideo) {
+    console.log("[mediaService] Video generation is disabled by config.");
+    return Promise.resolve(undefined);
+  }
+
   try {
     const motionPrompt = `
       Cinematic slow motion, psychological horror, atmospheric.
@@ -328,13 +344,21 @@ export const generateEnhancedMedia = async (
   // Trigger video only on high intensity moments to save tokens/time
   let videoPromise: Promise<string | undefined> = Promise.resolve(undefined);
   
-  if (ledger.traumaLevel > 80 || ledger.shamePainAbyssLevel > 80) {
+  const isHighIntensity = (ledger.traumaLevel > BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideoAboveTrauma || 
+                          ledger.shamePainAbyssLevel > BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideoAboveShame) &&
+                          BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideo; // Check global enable as well
+
+  if (isHighIntensity) {
     videoPromise = (async () => {
       try {
-        const imageBase64 = await imagePromise;
-        if (!imageBase64) return undefined;
+        const imageBase64 = await imagePromise; // Await image first, as video needs it
+        if (!imageBase64) {
+          console.warn("Image not available for video generation.");
+          return undefined;
+        }
         return await animateImageWithVeo(imageBase64, visualPrompt, '16:9');
       } catch (e) {
+        console.error("Conditional video generation failed:", e);
         return undefined;
       }
     })();
@@ -350,6 +374,11 @@ export const generateEnhancedMedia = async (
 };
 
 export const distortImage = async (imageB64: string, instruction: string): Promise<string | undefined> => {
+    if (!BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableImages) {
+        console.log("[mediaService] Image distortion is disabled by config.");
+        return Promise.resolve(undefined);
+    }
+
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',

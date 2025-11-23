@@ -2,6 +2,7 @@
 import { GoogleGenAI, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { YandereLedger, PrefectDNA, CharacterId } from "../types";
 import { VISUAL_PROFILES } from "../constants";
+import { BEHAVIOR_CONFIG } from "../config/behaviorTuning"; // Import behavior config
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -10,14 +11,22 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const VISUAL_MANDATE = {
   style: "grounded dark erotic academia + baroque brutalism + vampire noir + intimate psychological horror + rembrandt caravaggio lighting",
   technical: {
-    camera: "intimate 50mm or 85mm close-up",
-    lighting: "single gaslight, extreme chiaroscuro, shadows in cleavage and slits"
+    camera: "intimate 50mm or 85mm close-up, shallow depth of field",
+    // CHANGE: Added "rim lighting" and "volumetric" to separate subject from background
+    lighting: "cinematic rembrandt lighting, volumetric gaslight with cool blue rim-light, deep shadows but detailed midtones, atmospheric fog"
   },
   mood: "predatory intimacy, clinical amusement, suffocating dread, weaponized sexuality",
   quality: "restrained masterpiece oil painting, no fantasy elements, high detail on skin texture and fabric strain",
   negative_prompt: [
     "bright colors", "cheerful", "modern architecture", "soft focus", "natural daylight", 
-    "explicit nudity", "graphic violence", "anime", "cartoon", "3d render", "low res"
+    "explicit nudity", "graphic violence", "anime", "cartoon", "3d render", "low res",
+    // ADDED: Negative prompts for better visibility
+    "underexposed", 
+    "crushed blacks", 
+    "illegible", 
+    "too dark", 
+    "flat lighting",
+    "muddy textures"
   ]
 };
 
@@ -119,7 +128,8 @@ export function buildVisualPrompt(
   const lowerContext = sceneContext.toLowerCase();
   
   if (lowerContext.includes("dock") || lowerContext.includes("arrival")) environment = "volcanic rock dock, stormy sky, weeping stone, ocean spray, iron gates, monolithic architecture";
-  else if (lowerContext.includes("office") || lowerContext.includes("study") || lowerContext.includes("selene")) environment = "mahogany desk, velvet curtains, wine goblet, oppressive luxury, bookshelves, fireplace, persian rugs";
+  // CHANGE: Added emissive elements to office/selene
+  else if (lowerContext.includes("office") || lowerContext.includes("study") || lowerContext.includes("selene")) environment = "mahogany desk, glowing fireplace casting warm light, velvet curtains, wine goblet catching the light, oppressive luxury, bookshelves, fireplace, persian rugs";
   else if (lowerContext.includes("infirmary") || lowerContext.includes("clinic") || lowerContext.includes("lab") || lowerContext.includes("lysandra")) environment = "tiled walls, surgical tools, sterile light, medical cabinet, anatomical charts, stainless steel, cold atmosphere";
   else if (lowerContext.includes("cell") || lowerContext.includes("cage") || lowerContext.includes("dungeon")) environment = "rusted iron bars, damp straw, stone walls, claustrophobic, chains, dripping water, oubliette";
   else if (lowerContext.includes("lecture") || lowerContext.includes("hall") || lowerContext.includes("theater") || lowerContext.includes("rotunda")) environment = "tiered lecture hall, chalkboard, imposing podium, dust motes, spotlights, panopticon layout";
@@ -137,7 +147,9 @@ export function buildVisualPrompt(
     // Shame -> Lighting exposure
     if (ledger.shamePainAbyssLevel > 50) promptTechnical.lighting = "high-contrast, harsh shadows";
     if (ledger.shamePainAbyssLevel > 80) {
-        promptTechnical.lighting = "harsh spotlight from above, surrounding pitch black, exposed";
+        // CHANGE: "surrounding pitch black" -> "surrounding oppressive shadows"
+        // CHANGE: Added "specular highlights" to ensure skin/sweat reflects light even in dark
+        promptTechnical.lighting = "harsh clinical spotlight from above, surrounding oppressive shadows, high contrast specular highlights on skin, visible sweat texture";
         moodModifiers.push("humiliated-posture", "tearing-up", "flushed-skin", "avoiding-eye-contact", "covering-self");
     }
 
@@ -170,6 +182,11 @@ export function buildVisualPrompt(
 
 export const generateNarrativeImage = async (visualPromptRaw: string): Promise<string | undefined> => {
   
+  if (!BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableImages) {
+    if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.log("[mediaService] Image generation is disabled by config.");
+    return Promise.resolve(undefined);
+  }
+
   // Enforcing the JSON Structure Mandate
   const structuredPrompt = {
     ...VISUAL_MANDATE,
@@ -227,6 +244,11 @@ const selectVoiceForNarrative = (narrative: string): string => {
 };
 
 export const generateSpeech = async (narrative: string): Promise<string | undefined> => {
+  if (!BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableAudio) {
+    if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.log("[mediaService] Audio generation is disabled by config.");
+    return Promise.resolve(undefined);
+  }
+
   try {
     const voiceName = selectVoiceForNarrative(narrative);
     const response = await ai.models.generateContent({
@@ -255,6 +277,11 @@ export const animateImageWithVeo = async (
   visualPrompt: string, 
   aspectRatio: '16:9' | '9:16' = '16:9'
 ): Promise<string | undefined> => {
+  if (!BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideo) {
+    if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.log("[mediaService] Video generation is disabled by config.");
+    return Promise.resolve(undefined);
+  }
+
   try {
     const motionPrompt = `
       Cinematic slow motion, psychological horror, atmospheric.
@@ -318,13 +345,21 @@ export const generateEnhancedMedia = async (
   // Trigger video only on high intensity moments to save tokens/time
   let videoPromise: Promise<string | undefined> = Promise.resolve(undefined);
   
-  if (ledger.traumaLevel > 80 || ledger.shamePainAbyssLevel > 80) {
+  const isHighIntensity = (ledger.traumaLevel > BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideoAboveTrauma || 
+                          ledger.shamePainAbyssLevel > BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideoAboveShame) &&
+                          BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideo; // Check global enable as well
+
+  if (isHighIntensity) {
     videoPromise = (async () => {
       try {
-        const imageBase64 = await imagePromise;
-        if (!imageBase64) return undefined;
+        const imageBase64 = await imagePromise; // Await image first, as video needs it
+        if (!imageBase64) {
+          console.warn("Image not available for video generation.");
+          return undefined;
+        }
         return await animateImageWithVeo(imageBase64, visualPrompt, '16:9');
       } catch (e) {
+        console.error("Conditional video generation failed:", e);
         return undefined;
       }
     })();
@@ -340,6 +375,11 @@ export const generateEnhancedMedia = async (
 };
 
 export const distortImage = async (imageB64: string, instruction: string): Promise<string | undefined> => {
+    if (!BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableImages) {
+        if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.log("[mediaService] Image distortion is disabled by config.");
+        return Promise.resolve(undefined);
+    }
+
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',

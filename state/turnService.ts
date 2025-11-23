@@ -1,7 +1,8 @@
 import { LogEntry } from '../types';
 import { generateNextTurn } from '../services/geminiService';
-import { generateEnhancedMedia } from '../services/mediaService';
 import { useGameStore } from './gameStore';
+import { enqueueTurnForMedia } from './mediaController';
+import { BEHAVIOR_CONFIG } from '../config/behaviorTuning';
 
 export const turnService = {
   
@@ -10,20 +11,17 @@ export const turnService = {
    */
   initGame: async () => {
     const store = useGameStore.getState();
-    if (store.logs.length > 2) return; // Already initialized
+    if (store.multimodalTimeline.length > 0) return; // Already initialized if timeline exists
 
-    const initialLogs: LogEntry[] = [
-      { 
-        id: 'init-1', 
-        type: 'system', 
-        content: 'SYSTEM_BOOT::YANDERE_PROTOCOL_INITIATED...' 
-      },
-      { 
-        id: 'init-2', 
-        type: 'narrative', 
-        content: 'The volcanic ash tastes like copper on your tongue. You stand on the Weeping Dock, the black stone slick with humidity. Ahead, the monolithic gates of The Forge loom, carved from ancient basalt. A woman in crimson velvet robes waits. Provost Selene. She holds a goblet of wine, her gaze dissecting you before you have taken a single step. The silence is heavy, broken only by the distant rhythmic pounding of the magma hammers deep beneath the earth. Your wrists chafe against the cold iron cuffs.' 
-      }
-    ];
+    const initialNarrative = 'The volcanic ash tastes like copper on your tongue. You stand on the Weeping Dock, the black stone slick with humidity. Ahead, the monolithic gates of The Forge loom, carved from ancient basalt. A woman in crimson velvet robes waits. Provost Selene. She holds a goblet of wine, her gaze dissecting you before you have taken a single step. The silence is heavy, broken only by the distant rhythmic pounding of the magma hammers deep beneath the earth. Your wrists chafe against the cold iron cuffs.';
+    const initVisualPrompt = "Magistra Selene standing on the Weeping Dock, black volcanic rock, crimson velvet robes, holding wine goblet, stormy sky, cinematic lighting, highly detailed, baroque brutalism.";
+    
+    // Register the initial narrative as the first multimodal turn
+    const initialTurn = store.registerTurn(initialNarrative, initVisualPrompt, {
+        activeCharacters: ['Provost Selene'],
+        location: 'The Weeping Dock',
+        tags: ['introduction', 'arrival']
+    });
 
     const initialChoices = [
       "Bow your head and approach silently.",
@@ -31,19 +29,17 @@ export const turnService = {
       "Scan the environment for escape routes."
     ];
 
-    store.setLogs(initialLogs);
+    // Add narrative to legacy logs for current UI compatibility
+    store.addLog({ 
+        id: initialTurn.id, 
+        type: 'narrative', 
+        content: initialTurn.text,
+        visualContext: initialTurn.visualPrompt
+    });
     store.setChoices(initialChoices);
 
-    // Initial Art
-    const initVisualPrompt = "Magistra Selene standing on the Weeping Dock, black volcanic rock, crimson velvet robes, holding wine goblet, stormy sky, cinematic lighting, highly detailed, baroque brutalism.";
-    
-    // Generate media in background
-    try {
-      const media = await generateEnhancedMedia(initialLogs[1].content, initVisualPrompt, store.gameState.ledger);
-      store.updateLogMedia('init-2', media);
-    } catch (e) {
-      console.error("Initial media generation failed", e);
-    }
+    // Enqueue media generation for the initial turn
+    enqueueTurnForMedia(initialTurn);
   },
 
   /**
@@ -56,9 +52,10 @@ export const turnService = {
     store.setChoices([]);
     store.setThinking(true);
     
-    // 2. Add System Log
+    // 2. Add System Log (for legacy logs display)
+    const actionLogId = `sys-action-${Date.now()}`;
     const actionLog: LogEntry = {
-      id: Date.now().toString(),
+      id: actionLogId,
       type: 'system',
       content: `> SELECTION: ${action.toUpperCase()}`
     };
@@ -69,26 +66,79 @@ export const turnService = {
       .filter(l => l.type === 'narrative')
       .map(l => l.content);
       
+    // Introduce artificial delay for "thinking" feel
+    if (BEHAVIOR_CONFIG.GAMEPLAY.TURN_DELAY_MS > 0) {
+      await new Promise(resolve => setTimeout(resolve, BEHAVIOR_CONFIG.GAMEPLAY.TURN_DELAY_MS));
+    }
+
     const response = await generateNextTurn(historyText, store.gameState, action);
 
     // 4. Update Store with Response
     store.setThinking(false);
-    store.applyDirectorUpdates(response);
+    store.applyDirectorUpdates(response); // Applies ledger/graph updates, updates turn count, sets debug logs
     
-    // 5. Add Narrative Logs
-    const narrativeId = `narrative-${Date.now()}`;
-    const newLogs: LogEntry[] = [
-      { id: `think-${Date.now()}`, type: 'thought', content: response.thought_process },
-      { id: narrativeId, type: 'narrative', content: response.narrative }
-    ];
-    newLogs.forEach(log => store.addLog(log));
-    
-    store.setChoices(response.choices);
+    // 5. Register new multimodal turn and enqueue media
+    const newMultimodalTurn = store.registerTurn(response.narrative, response.visual_prompt, {
+        ledgerSnapshot: store.gameState.ledger,
+        activeCharacters: [], // TODO: Extract from DirectorResponse if available
+        location: store.gameState.location,
+        tags: [], // TODO: Extract from DirectorResponse if available
+        simulationLog: response.simulationLog,
+        directorDebug: response.debugTrace
+    });
 
-    // 6. Generate Media (Async)
-    generateEnhancedMedia(response.narrative, response.visual_prompt, store.gameState.ledger)
-      .then(media => {
-        store.updateLogMedia(narrativeId, media);
-      });
-  }
+    // Add narrative to legacy logs for current UI compatibility, linking it to the multimodal turn ID
+    store.addLog({ 
+        id: newMultimodalTurn.id, 
+        type: 'thought', 
+        content: response.thought_process 
+    });
+    store.addLog({ 
+        id: newMultimodalTurn.id, 
+        type: 'narrative', 
+        content: newMultimodalTurn.text,
+        visualContext: newMultimodalTurn.visualPrompt
+    });
+
+    store.setChoices(response.choices);
+    enqueueTurnForMedia(newMultimodalTurn);
+
+    // Preload upcoming media if needed
+    store.preloadUpcomingMedia(newMultimodalTurn.id, 2); // Preload next 2 turns
+  },
+
+  /**
+   * Replays the entire multimodal timeline from the beginning.
+   * @param {boolean} autoAdvance Automatically advances through turns.
+   */
+  replayTimeline: async (autoAdvance: boolean = true) => {
+    const store = useGameStore.getState();
+    store.pauseAudio();
+    store.resetMultimodalState(); // Clear current timeline and playback state
+    store.resetGame(); // Reset game state but keep media controller active
+
+    // Re-initialize the game to build the timeline
+    await turnService.initGame();
+
+    // The logic to "replay" an existing timeline would require saving
+    // the Director's full responses for each turn and re-applying them.
+    // For now, this effectively restarts the game and generates new media.
+
+    if (autoAdvance) {
+      store.toggleAutoAdvance(); // Ensure auto-advance is on
+    }
+    // Automatically play the first turn (after it's ready)
+    const firstTurn = store.multimodalTimeline[0];
+    if (firstTurn) {
+      const unsubscribe = store.subscribe(
+        (state) => state.multimodalTimeline.find(t => t.id === firstTurn.id)?.audioStatus,
+        (audioStatus) => {
+          if (audioStatus === 'ready') {
+            store.playTurn(firstTurn.id);
+            unsubscribe(); // Only play once
+          }
+        }
+      );
+    }
+  },
 };

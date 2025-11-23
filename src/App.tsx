@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { useGameStore } from './state/gameStore';
 import { turnService } from './state/turnService';
@@ -10,30 +9,43 @@ import NetworkGraph from './components/NetworkGraph';
 import ReactiveCanvas from './components/ReactiveCanvas';
 import DistortionLayer from './components/DistortionLayer';
 import DevOverlay from './components/DevOverlay';
+import MediaPanel from './components/MediaPanel'; // NEW: MediaPanel
 import { Menu, Terminal, Activity, Zap, X } from 'lucide-react';
 
 const App: React.FC = () => {
   // Store Hooks
-  const gameState = useGameStore(state => state.gameState);
-  const logs = useGameStore(state => state.logs);
-  const choices = useGameStore(state => state.choices);
-  const isThinking = useGameStore(state => state.isThinking);
-  const isMenuOpen = useGameStore(state => state.isMenuOpen);
-  const isGrimoireOpen = useGameStore(state => state.isGrimoireOpen);
-  const executedCode = useGameStore(state => state.executedCode);
-  const setMenuOpen = useGameStore(state => state.setMenuOpen);
-  const setGrimoireOpen = useGameStore(state => state.setGrimoireOpen);
-  const setDevOverlayOpen = useGameStore(state => state.setDevOverlayOpen);
-  const addLog = useGameStore(state => state.addLog);
+  const { 
+    ledger, 
+    nodes, 
+    links, 
+    turn, 
+    location,
+    logs,
+    choices,
+    isThinking,
+    isMenuOpen,
+    isGrimoireOpen,
+    executedCode,
+    setMenuOpen,
+    setGrimoireOpen,
+    setDevOverlayOpen,
+    addLog,
+    multimodalTimeline,
+    currentTurnId, 
+    getTurnById,
+    playTurn,
+    pauseAudio,
+  } = useGameStore();
 
   // Local UI State (for purely visual toggles not needed in global store)
   const [canvasActive, setCanvasActive] = React.useState(true);
   const hasInitialized = useRef(false);
 
-  // Background Media Logic
-  const activeBackground = [...logs].reverse().find(l => l.imageData || l.videoData);
-  const latestImage = activeBackground?.imageData;
-  const latestVideo = activeBackground?.videoData;
+  // Background Media Logic - now driven by multimodalTimeline
+  const currentTurn = currentTurnId ? getTurnById(currentTurnId) : undefined;
+  const latestImage = currentTurn?.imageData;
+  const latestVideo = currentTurn?.videoUrl;
+
 
   // Initialize Game
   useEffect(() => {
@@ -45,15 +57,15 @@ const App: React.FC = () => {
   // Haptic Feedback
   useEffect(() => {
     if (BEHAVIOR_CONFIG.ANIMATION.ENABLE_HAPTICS) {
-      if (gameState.ledger.shamePainAbyssLevel > 85 || gameState.ledger.traumaLevel > 90) {
+      if (ledger.shamePainAbyssLevel > 85 || ledger.traumaLevel > 90) {
         if ('vibrate' in navigator) {
           navigator.vibrate([100, 50, 100]);
         }
       }
     }
-  }, [gameState.ledger.shamePainAbyssLevel, gameState.ledger.traumaLevel]);
+  }, [ledger.shamePainAbyssLevel, ledger.traumaLevel]);
 
-  // Keyboard Shortcuts
+  // Keyboard Shortcuts (DevOverlay takes precedence for ` key)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Toggle Dev Overlay with `
@@ -62,10 +74,20 @@ const App: React.FC = () => {
         const current = useGameStore.getState().isDevOverlayOpen;
         setDevOverlayOpen(!current);
       }
+      // Quick choices 1-9 are handled in DevOverlay, but global capture
+      if (e.key >= '1' && e.key <= '9') {
+        const choiceIndex = parseInt(e.key) - 1;
+        const currentChoices = useGameStore.getState().choices;
+        if (choiceIndex < currentChoices.length && !useGameStore.getState().isThinking) {
+          turnService.handleAction(currentChoices[choiceIndex]);
+        }
+      }
+      // Ctrl+S / Ctrl+L / Ctrl+R handled in DevOverlay.
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setDevOverlayOpen]);
+
 
   // Grimoire Handler
   const handleGrimoireResult = (type: 'image' | 'video' | 'text', data: string, context: string) => {
@@ -80,11 +102,11 @@ const App: React.FC = () => {
   };
 
   return (
-    <DistortionLayer ledger={gameState.ledger}>
+    <DistortionLayer ledger={ledger}>
       <div className="relative w-full h-screen overflow-hidden bg-forge-black text-forge-text font-sans selection:bg-forge-gold selection:text-black">
         
         {/* DEV OVERLAY */}
-        <DevOverlay />
+        {BEHAVIOR_CONFIG.DEV_MODE.ENABLED && <DevOverlay />}
 
         {/* LAYER 0: CINEMATIC BACKGROUND */}
         <div className="absolute inset-0 z-0 transition-opacity duration-1000 ease-in-out">
@@ -98,7 +120,7 @@ const App: React.FC = () => {
              </div>
           )}
           
-          <ReactiveCanvas ledger={gameState.ledger} isActive={canvasActive} />
+          <ReactiveCanvas ledger={ledger} isActive={canvasActive} />
 
           {/* Cinematic Letterbox / Gradients */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90"></div>
@@ -128,12 +150,12 @@ const App: React.FC = () => {
             
             {/* Quick Stats */}
             <div className="hidden md:flex items-center gap-4 px-4 bg-black/50 border border-stone-800 rounded-sm backdrop-blur-md font-mono text-[10px] tracking-widest">
-              <span className={gameState.ledger.traumaLevel > BEHAVIOR_CONFIG.TRAUMA_THRESHOLDS.GLITCH_START ? 'text-forge-crimson animate-pulse' : 'text-stone-500'}>
-                TRM:{gameState.ledger.traumaLevel}%
+              <span className={ledger.traumaLevel > BEHAVIOR_CONFIG.TRAUMA_THRESHOLDS.GLITCH_START ? 'text-forge-crimson animate-pulse' : 'text-stone-500'}>
+                TRM:{ledger.traumaLevel}%
               </span>
               <span className="text-stone-700">|</span>
-              <span className={gameState.ledger.shamePainAbyssLevel > BEHAVIOR_CONFIG.TRAUMA_THRESHOLDS.GLITCH_START ? 'text-forge-crimson' : 'text-stone-500'}>
-                SHM:{gameState.ledger.shamePainAbyssLevel}%
+              <span className={ledger.shamePainAbyssLevel > BEHAVIOR_CONFIG.TRAUMA_THRESHOLDS.GLITCH_START ? 'text-forge-crimson' : 'text-stone-500'}>
+                SHM:{ledger.shamePainAbyssLevel}%
               </span>
             </div>
           </div>
@@ -161,7 +183,7 @@ const App: React.FC = () => {
                thinking={isThinking} 
                choices={choices}
                onChoice={turnService.handleAction}
-               ledger={gameState.ledger}
+               ledger={ledger}
              />
           </div>
         </div>
@@ -173,22 +195,33 @@ const App: React.FC = () => {
             
             <div className="flex-1 max-w-md space-y-8 pt-10">
                <h2 className="font-display text-3xl text-forge-gold border-b border-forge-gold/30 pb-4">Subject Metrics</h2>
-               <StatusLedger ledger={gameState.ledger} />
+               <StatusLedger ledger={ledger} />
                <div className="font-mono text-xs text-stone-500 space-y-2 p-4 border border-stone-900 bg-stone-900/20">
-                  <p>TURN_CYCLE: {gameState.turn}</p>
-                  <p>CURRENT_SECTOR: {gameState.location}</p>
+                  <p>TURN_CYCLE: {turn}</p>
+                  <p>CURRENT_SECTOR: {location}</p>
                   <p>SYSTEM_STATUS: NOMINAL</p>
+                  <button onClick={useGameStore.getState().saveSnapshot} className="text-xs text-blue-400 hover:text-blue-200 block text-left">Save Snapshot (Ctrl+S)</button>
+                  <button onClick={useGameStore.getState().loadSnapshot} className="text-xs text-blue-400 hover:text-blue-200 block text-left">Load Snapshot (Ctrl+L)</button>
+                  <button onClick={() => { if (confirm("Are you sure you want to reset the game?")) { useGameStore.getState().resetGame(); turnService.initGame(); } }} className="text-xs text-red-400 hover:text-red-200 block text-left">Reset Game (Ctrl+R)</button>
                </div>
             </div>
 
             <div className="flex-1 max-w-2xl space-y-8 pt-10">
                <h2 className="font-display text-3xl text-forge-gold border-b border-forge-gold/30 pb-4">Social Graph (NetworkX)</h2>
                <NetworkGraph 
-                  nodes={gameState.nodes} 
-                  links={gameState.links} 
-                  ledger={gameState.ledger} 
+                  nodes={nodes} 
+                  links={links} 
+                  ledger={ledger} 
                   executedCode={executedCode}
                 />
+            </div>
+            
+            {/* NEW: MediaPanel in Menu Overlay for full-screen view */}
+            <div className="flex-1 max-w-xl space-y-8 pt-10">
+                <h2 className="font-display text-3xl text-forge-gold border-b border-forge-gold/30 pb-4">Multimodal Timeline</h2>
+                <div className="h-[400px] w-full border border-stone-800 rounded-sm overflow-hidden">
+                    <MediaPanel />
+                </div>
             </div>
           </div>
         )}
@@ -197,7 +230,7 @@ const App: React.FC = () => {
           isOpen={isGrimoireOpen} 
           onClose={() => setGrimoireOpen(false)} 
           onResult={handleGrimoireResult}
-          gameState={gameState}
+          gameState={{ ledger, nodes, links, turn, location }}
         />
 
       </div>

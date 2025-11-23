@@ -1,3 +1,4 @@
+
 export enum CharacterId {
   PROVOST = 'Provost_Selene',
   LOGICIAN = 'Dr_Lysandra',
@@ -82,8 +83,8 @@ export interface DirectorOutput {
     edges_removed?: { source: string; target: string }[];
   };
   choices: string[];
-  simulationLog?: string;
-  debugTrace?: string;
+  simulationLog?: string; // ADDED
+  debugTrace?: string; // ADDED
 }
 
 // New Director Response Schema (PROMPT 6)
@@ -303,4 +304,74 @@ export interface FilteredSceneContext {
   playerTrauma: number;
   recentRituals: string[];
   sceneFlags: string[];
+}
+
+// --- MULTIMODAL SYSTEM TYPES ---
+export enum MediaStatus {
+  'idle' = 'idle',
+  'pending' = 'pending',
+  'inProgress' = 'inProgress', // Added inProgress status
+  'ready' = 'ready',
+  'error' = 'error',
+}
+
+export interface MultimodalTurn {
+  id: string; // Matches log entry ID
+  turnIndex: number; // Sequential turn number
+  text: string; // Canonical narrative text
+  visualPrompt?: string; // JSON visual prompt
+  
+  // Media status tracking
+  imageStatus: MediaStatus;
+  imageData?: string;
+  imageError?: string; // Added error field
+  
+  audioStatus: MediaStatus;
+  audioUrl?: string; // Base64 audio string
+  audioDuration?: number; // In seconds
+  audioError?: string; // Added error field
+  
+  videoStatus: MediaStatus;
+  videoUrl?: string; // Base64 video string (or blob URL)
+  videoError?: string; // Added error field
+  
+  // Metadata for coherence, debug, etc.
+  metadata?: {
+    ledgerSnapshot: YandereLedger;
+    activeCharacters: string[];
+    location: string;
+    tags: string[];
+    simulationLog?: string;
+    directorDebug?: string;
+  };
+}
+
+export interface MediaQueueItem {
+  turnId: string;
+  type: 'image' | 'audio' | 'video';
+  prompt: string;
+  narrativeText?: string; // For audio generation
+  retries?: number; // Made optional
+  addedAt?: number; // Made optional
+  errorMessage?: string; // Added errorMessage
+}
+
+export interface AudioPlaybackState {
+  currentPlayingTurnId: string | null;
+  isPlaying: boolean;
+  currentTime: number; // In seconds, of the current playing audio
+  volume: number; // 0-1
+  playbackRate: number; // 0.5x, 1x, 1.5x, 2x
+  autoAdvance: boolean; // Play next turn automatically
+  hasUserInteraction: boolean; // Required for autoplay in browsers
+}
+
+export interface CoherenceReport {
+  hasText: boolean;
+  hasImage: boolean;
+  hasAudio: boolean;
+  hasVideo: boolean;
+  isFullyLoaded: boolean;
+  hasErrors: boolean;
+  completionPercentage: number; // % of modalities loaded
 }
