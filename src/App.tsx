@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { GameState, LogEntry } from './types';
 import { INITIAL_LEDGER, INITIAL_NODES, INITIAL_LINKS } from './constants';
-import { generateNextTurn, analyzeArcaneRelic } from './services/geminiService';
+import { generateNextTurn } from './services/geminiService';
 import { generateEnhancedMedia } from './services/mediaService';
 import NarrativeLog from './components/NarrativeLog';
 import Grimoire from './components/Grimoire';
@@ -10,7 +10,7 @@ import StatusLedger from './components/StatusLedger';
 import NetworkGraph from './components/NetworkGraph';
 import ReactiveCanvas from './components/ReactiveCanvas';
 import DistortionLayer from './components/DistortionLayer';
-import { Menu, Eye, X, Activity, Zap } from 'lucide-react';
+import { Menu, Eye, X, Activity, Zap, Terminal } from 'lucide-react';
 
 const App: React.FC = () => {
   // Game State
@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [isGrimoireOpen, setIsGrimoireOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [canvasActive, setCanvasActive] = useState(true);
+  const [executedCode, setExecutedCode] = useState<string | undefined>(undefined);
   
   const hasInitialized = useRef(false);
 
@@ -57,7 +58,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (gameState.ledger.shamePainAbyssLevel > 85 || gameState.ledger.traumaLevel > 90) {
       if ('vibrate' in navigator) {
-        // Pattern: Long shudder, short pulse, long shudder
         navigator.vibrate([100, 50, 100]);
       }
     }
@@ -97,6 +97,7 @@ const App: React.FC = () => {
   const handleAction = useCallback(async (action: string) => {
     setChoices([]);
     setIsThinking(true);
+    setExecutedCode(undefined);
     
     const actionLog: LogEntry = {
       id: Date.now().toString(),
@@ -111,7 +112,13 @@ const App: React.FC = () => {
     const response = await generateNextTurn(historyText, gameState, action);
 
     setIsThinking(false);
+    
+    // Handle NetworkX Simulation Code
+    if (response.executed_code) {
+      setExecutedCode(response.executed_code);
+    }
 
+    // State Updates
     if (response.state_updates) {
       setGameState(prev => ({
         ...prev,
@@ -120,11 +127,36 @@ const App: React.FC = () => {
       }));
     }
 
-    if (response.new_edges) {
-       setGameState(prev => ({
-           ...prev,
-           links: [...prev.links, ...response.new_edges!]
-       }));
+    // Graph Topology Updates
+    if (response.graph_updates) {
+        setGameState(prev => {
+            let newNodes = [...prev.nodes];
+            let newLinks = [...prev.links];
+
+            // Add Nodes
+            if (response.graph_updates?.nodes_added) {
+                response.graph_updates.nodes_added.forEach(n => {
+                    if (!newNodes.find(en => en.id === n.id)) {
+                        newNodes.push(n);
+                    }
+                });
+            }
+            // Remove Nodes
+            if (response.graph_updates?.nodes_removed) {
+                newNodes = newNodes.filter(n => !response.graph_updates?.nodes_removed?.includes(n.id));
+                newLinks = newLinks.filter(l => {
+                    const s = typeof l.source === 'string' ? l.source : l.source.id;
+                    const t = typeof l.target === 'string' ? l.target : l.target.id;
+                    return !response.graph_updates?.nodes_removed?.includes(s) && !response.graph_updates?.nodes_removed?.includes(t);
+                });
+            }
+            // Add Edges
+            if (response.graph_updates?.edges_added) {
+                newLinks = [...newLinks, ...response.graph_updates.edges_added];
+            }
+
+            return { ...prev, nodes: newNodes, links: newLinks };
+        });
     }
 
     const narrativeId = `narrative-${Date.now()}`;
@@ -136,7 +168,7 @@ const App: React.FC = () => {
     setLogs(prev => [...prev, ...newLogs]);
     setChoices(response.choices);
 
-    // CALL ENHANCED MEDIA PIPELINE via mediaService
+    // Media Pipeline
     generateEnhancedMedia(response.narrative, response.visual_prompt, gameState.ledger).then(media => {
       setLogs(currentLogs => 
         currentLogs.map(log => 
@@ -165,7 +197,6 @@ const App: React.FC = () => {
              </div>
           )}
           
-          {/* Reactive Particle Canvas - Visualizes Trauma/Shame */}
           <ReactiveCanvas ledger={gameState.ledger} isActive={canvasActive} />
 
           {/* Cinematic Letterbox / Gradients */}
@@ -186,7 +217,6 @@ const App: React.FC = () => {
               <Menu size={20} />
             </button>
 
-            {/* Canvas Toggle */}
             <button 
               onClick={() => setCanvasActive(!canvasActive)}
               className={`border border-forge-gold/30 bg-black/50 p-3 rounded-sm transition-all backdrop-blur-md ${canvasActive ? 'text-forge-gold shadow-[0_0_10px_rgba(250,204,21,0.2)]' : 'text-stone-500'}`}
@@ -194,8 +224,8 @@ const App: React.FC = () => {
             >
               <Zap size={20} />
             </button>
-
-            {/* Psychometric Quick View */}
+            
+            {/* Quick Stats */}
             <div className="hidden md:flex items-center gap-4 px-4 bg-black/50 border border-stone-800 rounded-sm backdrop-blur-md font-mono text-[10px] tracking-widest">
               <span className={gameState.ledger.traumaLevel > 70 ? 'text-forge-crimson animate-pulse' : 'text-stone-500'}>
                 TRM:{gameState.ledger.traumaLevel}%
@@ -203,10 +233,6 @@ const App: React.FC = () => {
               <span className="text-stone-700">|</span>
               <span className={gameState.ledger.shamePainAbyssLevel > 70 ? 'text-forge-crimson' : 'text-stone-500'}>
                 SHM:{gameState.ledger.shamePainAbyssLevel}%
-              </span>
-              <span className="text-stone-700">|</span>
-              <span className={gameState.ledger.hopeLevel < 30 ? 'text-yellow-600' : 'text-stone-500'}>
-                HPE:{gameState.ledger.hopeLevel}%
               </span>
             </div>
           </div>
@@ -216,8 +242,8 @@ const App: React.FC = () => {
                  onClick={() => setIsGrimoireOpen(true)}
                  className="border border-stone-800 bg-black/50 text-stone-400 hover:text-forge-gold hover:border-forge-gold px-4 py-2 rounded-sm backdrop-blur-md font-mono text-xs tracking-widest uppercase flex items-center gap-2 transition-all"
              >
-                <Eye size={14} />
-                Terminal
+                <Terminal size={14} />
+                <span className="hidden md:inline">Director Terminal</span>
              </button>
              <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500">
                 <Activity size={10} className={isThinking ? "text-forge-gold animate-pulse" : "text-stone-700"} />
@@ -255,8 +281,13 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex-1 max-w-2xl space-y-8 pt-10">
-               <h2 className="font-display text-3xl text-forge-gold border-b border-forge-gold/30 pb-4">Social Web</h2>
-               <NetworkGraph nodes={gameState.nodes} links={gameState.links} ledger={gameState.ledger} />
+               <h2 className="font-display text-3xl text-forge-gold border-b border-forge-gold/30 pb-4">Social Graph (NetworkX)</h2>
+               <NetworkGraph 
+                  nodes={gameState.nodes} 
+                  links={gameState.links} 
+                  ledger={gameState.ledger} 
+                  executedCode={executedCode}
+                />
             </div>
           </div>
         )}

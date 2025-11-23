@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { GraphNode, GraphLink, CharacterId, YandereLedger } from '../types';
@@ -5,15 +6,15 @@ import { GraphNode, GraphLink, CharacterId, YandereLedger } from '../types';
 interface Props {
   nodes: GraphNode[];
   links: GraphLink[];
-  ledger?: YandereLedger; // Made optional for backward compatibility but logic uses it
+  ledger?: YandereLedger; 
+  executedCode?: string; // New prop to show code execution status
 }
 
-const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger }) => {
+const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger, executedCode }) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Default values if ledger is missing
   const trauma = ledger?.traumaLevel || 0;
-  const shame = ledger?.shamePainAbyssLevel || 0;
   const hope = ledger?.hopeLevel || 50;
 
   useEffect(() => {
@@ -40,10 +41,9 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger }) => {
       .force("collide", d3.forceCollide().radius(40));
 
     // --- RENDER LINKS ---
-    // Semantic coloring for links
     const getLinkColor = (relation: string) => {
         const r = relation.toLowerCase();
-        if (r.includes('hate') || r.includes('hurt') || r.includes('hunt')) return "#ef4444"; // Red
+        if (r.includes('hate') || r.includes('hurt') || r.includes('hunt')) return "#be123c"; // Crimson
         if (r.includes('love') || r.includes('bond') || r.includes('protect')) return "#facc15"; // Gold
         return "#44403c"; // Stone/Neutral
     };
@@ -96,20 +96,15 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger }) => {
 
     // --- TICK FUNCTION with TRAUMA JITTER ---
     simulation.on("tick", () => {
-      
-      // Jitter intensity based on trauma
       const jitter = trauma > 70 ? (trauma - 70) * 0.05 : 0;
-
       link
         .attr("x1", (d: any) => d.source.x + (Math.random() - 0.5) * jitter)
         .attr("y1", (d: any) => d.source.y + (Math.random() - 0.5) * jitter)
         .attr("x2", (d: any) => d.target.x + (Math.random() - 0.5) * jitter)
         .attr("y2", (d: any) => d.target.y + (Math.random() - 0.5) * jitter);
-
       node
         .attr("cx", (d: any) => d.x + (Math.random() - 0.5) * jitter)
         .attr("cy", (d: any) => d.y + (Math.random() - 0.5) * jitter);
-
       labels
         .attr("x", (d: any) => d.x + (Math.random() - 0.5) * jitter)
         .attr("y", (d: any) => d.y + (Math.random() - 0.5) * jitter);
@@ -121,36 +116,38 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger }) => {
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
       }
-
       function dragged(event: any) {
         event.subject.fx = event.x;
         event.subject.fy = event.y;
       }
-
       function dragended(event: any) {
         if (!event.active) simulation.alphaTarget(0);
         event.subject.fx = null;
         event.subject.fy = null;
       }
-
-      return d3.drag()
-        .on("start", dragstarted)
-        .on("drag", dragged)
-        .on("end", dragended);
+      return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
     }
 
     return () => {
       simulation.stop();
     };
 
-  }, [nodes, links, trauma, shame, hope]);
+  }, [nodes, links, trauma, hope]);
 
   return (
-    <div className={`w-full h-64 bg-black border border-stone-800 rounded-sm relative transition-all duration-500 ${trauma > 80 ? 'border-forge-crimson/30' : ''}`}>
+    <div className={`w-full h-full min-h-[300px] flex flex-col bg-forge-black border border-stone-800 rounded-sm relative transition-all duration-500 ${trauma > 80 ? 'border-forge-crimson/30' : ''}`}>
        <div className="absolute top-2 left-2 text-xs font-mono text-forge-subtle tracking-widest z-10 pointer-events-none">
         RELATION_MATRIX_V4 {trauma > 90 && <span className="text-red-600 animate-pulse">:: UNSTABLE</span>}
       </div>
-      <svg ref={svgRef} className="w-full h-full" />
+      <svg ref={svgRef} className="w-full flex-1" />
+      
+      {/* Code Execution Overlay */}
+      {executedCode && (
+        <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm p-2 border-t border-stone-800 max-h-24 overflow-y-auto">
+           <div className="font-mono text-[9px] text-green-500 mb-1">$ executing_graph_logic.py</div>
+           <pre className="font-mono text-[8px] text-stone-400 whitespace-pre-wrap">{executedCode}</pre>
+        </div>
+      )}
     </div>
   );
 };

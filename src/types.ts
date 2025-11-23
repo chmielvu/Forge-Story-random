@@ -52,7 +52,7 @@ export interface LogEntry {
   type: 'system' | 'narrative' | 'thought' | 'tool_output';
   content: string;
   visualContext?: string; 
-  // New media fields
+  // Media fields
   imageData?: string; // Base64 encoded image
   audioData?: string; // Base64 encoded PCM audio
   videoData?: string; // Base64 data URL for video
@@ -69,9 +69,16 @@ export interface GameState {
 export interface DirectorOutput {
   thought_process: string;
   narrative: string;
-  visual_prompt: string; // Specific prompt for Imagen
+  visual_prompt: string; 
   state_updates?: Partial<YandereLedger>;
-  new_edges?: GraphLink[];
+  // NetworkX Simulation
+  executed_code?: string; // The "Python" code executed
+  graph_updates?: {
+    nodes_added?: GraphNode[];
+    nodes_removed?: string[];
+    edges_added?: { source: string; target: string; relation: string; weight: number }[];
+    edges_removed?: { source: string; target: string }[];
+  };
   choices: string[];
 }
 
@@ -95,6 +102,6 @@ export interface NPCAgentState {
   archetype: AgentArchetype;
   traits: OceanTraits;
   voicePreset: 'Zephyr' | 'Puck' | 'Kore' | 'Fenrir';
-  currentIntent: string; // Short description of what they want RIGHT NOW
-  obsessionLevel: number; // 0-100 how focused they are on Subject 84
+  currentIntent: string;
+  obsessionLevel: number;
 }

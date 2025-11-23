@@ -1,10 +1,9 @@
 
-import { GoogleGenAI, Type, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
+import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { SYSTEM_INSTRUCTION, DIRECTOR_MANDATE_PROMPT } from "../constants";
 import { DirectorOutput, GameState } from "../types";
 import { orchestrator } from "../agents/AgentOrchestrator";
 
-// Initialize client with strict process.env access
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const directorSchema = {
@@ -12,7 +11,48 @@ const directorSchema = {
   properties: {
     thought_process: { type: Type.STRING, description: "Deep psychological analysis of the Subject's current state and the Agents' hidden agendas." },
     narrative: { type: Type.STRING, description: "EXTENDED NARRATIVE (300+ words). Visceral, sensory, and oppressive. Focus on textures (wet stone, velvet), smells (ozone, iron), and internal somatic sensations. Use second-person 'You'." },
-    visual_prompt: { type: Type.STRING, description: "A structured, cinematographer-grade prompt for Imagen. FORMAT: '[SUBJECT: Name, Clothing, Expression, Pose] + [ACTION: Specific interaction] + [ENVIRONMENT: Architecture, Props, Textures] + [LIGHTING: Light source, shadows, color palette] + [CAMERA: Angle, Focus]'. Example: 'Subject: Provost Selene in crimson velvet robes, Expression: imperious sneer, Action: holding a wine goblet, Environment: damp stone dungeon wall with iron rings, Lighting: single shaft of cold moonlight, chiaroscuro, Camera: Low angle looking up, deep depth of field.'" },
+    visual_prompt: { type: Type.STRING, description: "A structured, cinematographer-grade prompt for Imagen. FORMAT: '[SUBJECT] + [ACTION] + [ENVIRONMENT] + [LIGHTING] + [CAMERA]'. Example: 'Provost Selene in crimson robes, holding a wine goblet, damp stone dungeon, single shaft of moonlight, low angle.'" },
+    executed_code: { type: Type.STRING, description: "The Python NetworkX code that represents the changes to the social graph for this turn. E.g., `G.add_edge('Selene', 'Subject', weight=0.9, relation='owns')`" },
+    graph_updates: {
+      type: Type.OBJECT,
+      properties: {
+        nodes_added: { 
+          type: Type.ARRAY, 
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              label: { type: Type.STRING },
+              group: { type: Type.STRING },
+              val: { type: Type.NUMBER }
+            }
+          }
+        },
+        nodes_removed: { type: Type.ARRAY, items: { type: Type.STRING } },
+        edges_added: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              source: { type: Type.STRING },
+              target: { type: Type.STRING },
+              relation: { type: Type.STRING },
+              weight: { type: Type.NUMBER }
+            }
+          }
+        },
+        edges_removed: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              source: { type: Type.STRING },
+              target: { type: Type.STRING }
+            }
+          }
+        }
+      }
+    },
     state_updates: {
       type: Type.OBJECT,
       properties: {
@@ -27,18 +67,6 @@ const directorSchema = {
         arousalLevel: { type: Type.NUMBER },
         prostateSensitivity: { type: Type.NUMBER },
         ruinedOrgasmCount: { type: Type.NUMBER }
-      }
-    },
-    new_edges: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          source: { type: Type.STRING },
-          target: { type: Type.STRING },
-          relation: { type: Type.STRING },
-          weight: { type: Type.NUMBER }
-        }
       }
     },
     choices: {
@@ -62,7 +90,7 @@ export const generateNextTurn = async (
   
   const model = "gemini-3-pro-preview"; 
   const validNodes = getValidNodesString(currentState.nodes);
-  const recentHistory = history.slice(-15).join("\n\n");
+  const recentHistory = history.slice(-10).join("\n\n");
 
   // ORCHESTRATOR INJECTION
   const agentContext = orchestrator.generateContextBlock(currentState, action);
@@ -84,8 +112,7 @@ export const generateNextTurn = async (
     [PLAYER INPUT]
     Action: "${action}"
     
-    Generate the next beat. Make it heavy, sensual, and terrifying.
-    IMPORTANT: The 'visual_prompt' must strictly follow the structured format (SUBJECT + ACTION + ENVIRONMENT + LIGHTING + CAMERA). It must visually depict the EXACT moment described in your narrative.
+    Think like a Director. Plan the scene. Update the graph. Break the subject.
   `;
 
   try {
@@ -97,7 +124,7 @@ export const generateNextTurn = async (
         responseMimeType: "application/json",
         responseSchema: directorSchema,
         temperature: 1.1, 
-        thinkingConfig: { thinkingBudget: 4096 },
+        thinkingConfig: { thinkingBudget: 4096 }, // Deep Think enabled
         safetySettings: [
           { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
           { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
