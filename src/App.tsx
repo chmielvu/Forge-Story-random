@@ -2,14 +2,15 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { GameState, LogEntry } from './types';
 import { INITIAL_LEDGER, INITIAL_NODES, INITIAL_LINKS } from './constants';
-import { generateNextTurn, generateNarrativeMedia } from './services/geminiService';
+import { generateNextTurn, analyzeArcaneRelic } from './services/geminiService';
+import { generateEnhancedMedia } from './services/mediaService';
 import NarrativeLog from './components/NarrativeLog';
 import Grimoire from './components/Grimoire';
 import StatusLedger from './components/StatusLedger';
 import NetworkGraph from './components/NetworkGraph';
 import ReactiveCanvas from './components/ReactiveCanvas';
 import DistortionLayer from './components/DistortionLayer';
-import { Menu, Eye, X, Activity } from 'lucide-react';
+import { Menu, Eye, X, Activity, Zap } from 'lucide-react';
 
 const App: React.FC = () => {
   // Game State
@@ -25,7 +26,7 @@ const App: React.FC = () => {
     { 
       id: 'init-1', 
       type: 'system', 
-      content: 'SYSTEM_BOOT::PROTOCOL_INITIATED...' 
+      content: 'SYSTEM_BOOT::YANDERE_PROTOCOL_INITIATED...' 
     },
     { 
       id: 'init-2', 
@@ -43,12 +44,24 @@ const App: React.FC = () => {
   const [isThinking, setIsThinking] = useState(false);
   const [isGrimoireOpen, setIsGrimoireOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [canvasActive, setCanvasActive] = useState(true);
+  
   const hasInitialized = useRef(false);
 
   // Derived state for background - find the last log with media
   const activeBackground = [...logs].reverse().find(l => l.imageData || l.videoData);
   const latestImage = activeBackground?.imageData;
   const latestVideo = activeBackground?.videoData;
+
+  // Haptic Feedback System
+  useEffect(() => {
+    if (gameState.ledger.shamePainAbyssLevel > 85 || gameState.ledger.traumaLevel > 90) {
+      if ('vibrate' in navigator) {
+        // Pattern: Long shudder, short pulse, long shudder
+        navigator.vibrate([100, 50, 100]);
+      }
+    }
+  }, [gameState.ledger.shamePainAbyssLevel, gameState.ledger.traumaLevel]);
 
   // Initial Art Generation
   useEffect(() => {
@@ -58,11 +71,11 @@ const App: React.FC = () => {
     const initNarrative = logs[1].content;
     const initVisualPrompt = "Magistra Selene standing on the Weeping Dock, black volcanic rock, crimson velvet robes, holding wine goblet, stormy sky, cinematic lighting, highly detailed, baroque brutalism.";
     
-    generateNarrativeMedia(initNarrative, initVisualPrompt).then(media => {
+    generateEnhancedMedia(initNarrative, initVisualPrompt, gameState.ledger).then(media => {
       setLogs(currentLogs => 
         currentLogs.map(log => 
           log.id === 'init-2' 
-            ? { ...log, imageData: media.imageData, audioData: media.audioData }
+            ? { ...log, imageData: media.imageData, audioData: media.audioData, videoData: media.videoData }
             : log
         )
       );
@@ -93,6 +106,8 @@ const App: React.FC = () => {
     setLogs(prev => [...prev, actionLog]);
 
     const historyText = logs.filter(l => l.type === 'narrative').map(l => l.content);
+    
+    // CALL ENHANCED AGENT SYSTEM
     const response = await generateNextTurn(historyText, gameState, action);
 
     setIsThinking(false);
@@ -108,7 +123,6 @@ const App: React.FC = () => {
     if (response.new_edges) {
        setGameState(prev => ({
            ...prev,
-           // Simplified edge update logic
            links: [...prev.links, ...response.new_edges!]
        }));
     }
@@ -122,11 +136,12 @@ const App: React.FC = () => {
     setLogs(prev => [...prev, ...newLogs]);
     setChoices(response.choices);
 
-    generateNarrativeMedia(response.narrative, response.visual_prompt).then(media => {
+    // CALL ENHANCED MEDIA PIPELINE via mediaService
+    generateEnhancedMedia(response.narrative, response.visual_prompt, gameState.ledger).then(media => {
       setLogs(currentLogs => 
         currentLogs.map(log => 
           log.id === narrativeId 
-            ? { ...log, imageData: media.imageData, audioData: media.audioData }
+            ? { ...log, imageData: media.imageData, audioData: media.audioData, videoData: media.videoData } 
             : log
         )
       );
@@ -150,8 +165,8 @@ const App: React.FC = () => {
              </div>
           )}
           
-          {/* Reactive Particle Canvas */}
-          <ReactiveCanvas ledger={gameState.ledger} />
+          {/* Reactive Particle Canvas - Visualizes Trauma/Shame */}
+          <ReactiveCanvas ledger={gameState.ledger} isActive={canvasActive} />
 
           {/* Cinematic Letterbox / Gradients */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90"></div>
@@ -161,7 +176,7 @@ const App: React.FC = () => {
         {/* LAYER 1: ATMOSPHERE */}
         <div className="absolute inset-0 z-10 pointer-events-none shadow-[inset_0_0_200px_rgba(0,0,0,0.8)]"></div>
 
-        {/* LAYER 2: TOP CONTROLS (Minimal) */}
+        {/* LAYER 2: TOP CONTROLS */}
         <div className="absolute top-0 left-0 right-0 z-40 p-6 flex justify-between items-start">
           <div className="flex gap-4">
             <button 
@@ -170,6 +185,30 @@ const App: React.FC = () => {
             >
               <Menu size={20} />
             </button>
+
+            {/* Canvas Toggle */}
+            <button 
+              onClick={() => setCanvasActive(!canvasActive)}
+              className={`border border-forge-gold/30 bg-black/50 p-3 rounded-sm transition-all backdrop-blur-md ${canvasActive ? 'text-forge-gold shadow-[0_0_10px_rgba(250,204,21,0.2)]' : 'text-stone-500'}`}
+              title="Toggle Particle Effects"
+            >
+              <Zap size={20} />
+            </button>
+
+            {/* Psychometric Quick View */}
+            <div className="hidden md:flex items-center gap-4 px-4 bg-black/50 border border-stone-800 rounded-sm backdrop-blur-md font-mono text-[10px] tracking-widest">
+              <span className={gameState.ledger.traumaLevel > 70 ? 'text-forge-crimson animate-pulse' : 'text-stone-500'}>
+                TRM:{gameState.ledger.traumaLevel}%
+              </span>
+              <span className="text-stone-700">|</span>
+              <span className={gameState.ledger.shamePainAbyssLevel > 70 ? 'text-forge-crimson' : 'text-stone-500'}>
+                SHM:{gameState.ledger.shamePainAbyssLevel}%
+              </span>
+              <span className="text-stone-700">|</span>
+              <span className={gameState.ledger.hopeLevel < 30 ? 'text-yellow-600' : 'text-stone-500'}>
+                HPE:{gameState.ledger.hopeLevel}%
+              </span>
+            </div>
           </div>
           
           <div className="flex flex-col items-end gap-2">
@@ -182,7 +221,7 @@ const App: React.FC = () => {
              </button>
              <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500">
                 <Activity size={10} className={isThinking ? "text-forge-gold animate-pulse" : "text-stone-700"} />
-                <span>{isThinking ? "PROCESSING_FATE" : "AWAITING_INPUT"}</span>
+                <span>{isThinking ? "WEAVING_FATE" : "AWAITING_INPUT"}</span>
              </div>
           </div>
         </div>
@@ -195,6 +234,7 @@ const App: React.FC = () => {
                thinking={isThinking} 
                choices={choices}
                onChoice={handleAction}
+               ledger={gameState.ledger}
              />
           </div>
         </div>
@@ -216,7 +256,7 @@ const App: React.FC = () => {
 
             <div className="flex-1 max-w-2xl space-y-8 pt-10">
                <h2 className="font-display text-3xl text-forge-gold border-b border-forge-gold/30 pb-4">Social Web</h2>
-               <NetworkGraph nodes={gameState.nodes} links={gameState.links} />
+               <NetworkGraph nodes={gameState.nodes} links={gameState.links} ledger={gameState.ledger} />
             </div>
           </div>
         )}

@@ -10,9 +10,9 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const directorSchema = {
   type: Type.OBJECT,
   properties: {
-    thought_process: { type: Type.STRING, description: "Deep psychological analysis of the Subject's current state." },
+    thought_process: { type: Type.STRING, description: "Deep psychological analysis of the Subject's current state and the Agents' hidden agendas." },
     narrative: { type: Type.STRING, description: "EXTENDED NARRATIVE (300+ words). Visceral, sensory, and oppressive. Focus on textures (wet stone, velvet), smells (ozone, iron), and internal somatic sensations. Use second-person 'You'." },
-    visual_prompt: { type: Type.STRING, description: "A vivid, art-direction prompt for Imagen. Must specify: 1. Character appearance (exact outfit/features). 2. Environment (lighting, materials). 3. Action. 4. Mood (Baroque Brutalism, Vampire Noir)." },
+    visual_prompt: { type: Type.STRING, description: "A structured, cinematographer-grade prompt for Imagen. FORMAT: '[SUBJECT: Name, Clothing, Expression, Pose] + [ACTION: Specific interaction] + [ENVIRONMENT: Architecture, Props, Textures] + [LIGHTING: Light source, shadows, color palette] + [CAMERA: Angle, Focus]'. Example: 'Subject: Provost Selene in crimson velvet robes, Expression: imperious sneer, Action: holding a wine goblet, Environment: damp stone dungeon wall with iron rings, Lighting: single shaft of cold moonlight, chiaroscuro, Camera: Low angle looking up, deep depth of field.'" },
     state_updates: {
       type: Type.OBJECT,
       properties: {
@@ -85,6 +85,7 @@ export const generateNextTurn = async (
     Action: "${action}"
     
     Generate the next beat. Make it heavy, sensual, and terrifying.
+    IMPORTANT: The 'visual_prompt' must strictly follow the structured format (SUBJECT + ACTION + ENVIRONMENT + LIGHTING + CAMERA). It must visually depict the EXACT moment described in your narrative.
   `;
 
   try {
@@ -116,144 +117,10 @@ export const generateNextTurn = async (
     return {
       thought_process: "System Failure.",
       narrative: "The simulation fractures. The stone walls dissolve into bleeding code. You feel a profound sense of wrongness, as if the universe itself has rejected your choice. Try again.",
-      visual_prompt: "Abstract digital horror, bleeding pixels, red and black static.",
+      visual_prompt: "Abstract digital horror, bleeding pixels, red and black static, corrupted data stream.",
       choices: ["Stabilize consciousness.", "Reboot system."],
       state_updates: {}
     };
-  }
-};
-
-export const generateNarrativeMedia = async (
-  narrative: string,
-  visualPrompt: string
-): Promise<{ audioData?: string, imageData?: string }> => {
-  
-  const styleSuffix = " style: Dark, oppressive oil painting, golden frames, baroque noir, cinematic lighting, 8k resolution, highly detailed, atmospheric fog, volumetric lighting, dark erotic academia.";
-  
-  const imagePromise = ai.models.generateContent({
-    model: 'gemini-2.5-flash-image', 
-    contents: { parts: [{ text: `${visualPrompt} ${styleSuffix}` }] },
-    config: {
-      // Nano/Flash series do not support responseMimeType or Schema
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      ],
-    }
-  })
-  .then(res => {
-      for (const part of res.candidates?.[0]?.content?.parts || []) {
-          if (part.inlineData?.data) {
-              return part.inlineData.data;
-          }
-      }
-      return undefined;
-  })
-  .catch(error => {
-      console.error("⚠️ Image generation failed:", error);
-      return undefined;
-  });
-
-  const audioPromise = ai.models.generateContent({
-    model: 'gemini-2.5-flash-preview-tts',
-    contents: { parts: [{ text: narrative }] },
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: 'Zephyr' }
-        }
-      },
-    }
-  })
-  .then(res => res.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data)
-  .catch(error => {
-      console.error("⚠️ Audio generation failed:", error);
-      return undefined;
-  });
-
-  const [imageBytes, audioBytes] = await Promise.all([imagePromise, audioPromise]);
-  
-  return {
-    imageData: imageBytes,
-    audioData: audioBytes
-  };
-};
-
-export const animateImageWithVeo = async (
-  imageB64: string, 
-  prompt: string, 
-  aspectRatio: '16:9' | '9:16' = '16:9'
-): Promise<string | undefined> => {
-  try {
-    let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-fast-generate-preview',
-      prompt: `Cinematic slow motion, Park Chan-wook style, dark oppressive atmosphere, gold and black, subtle movement, ${prompt}`,
-      image: {
-        imageBytes: imageB64,
-        mimeType: 'image/jpeg',
-      },
-      config: {
-        numberOfVideos: 1,
-        resolution: '720p',
-        aspectRatio: aspectRatio
-      }
-    });
-
-    while (!operation.done) {
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      operation = await ai.operations.getVideosOperation({ operation: operation });
-    }
-
-    const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (videoUri) {
-      const response = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    }
-    return undefined;
-  } catch (e) {
-    console.error("Veo Animation Failed:", e);
-    return undefined;
-  }
-};
-
-export const distortImage = async (imageB64: string, instruction: string): Promise<string | undefined> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: imageB64,
-              mimeType: 'image/jpeg',
-            },
-          },
-          { text: instruction },
-        ],
-      },
-      config: {
-        responseModalities: [Modality.IMAGE],
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ],
-      },
-    });
-
-    const part = response.candidates?.[0]?.content?.parts?.[0];
-    if (part?.inlineData) {
-      return part.inlineData.data;
-    }
-    return undefined;
-  } catch (e) {
-    console.error("Image Distortion Failed:", e);
-    return undefined;
   }
 };
 

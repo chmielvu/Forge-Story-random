@@ -31,6 +31,8 @@
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
               'fade-in': 'fadeIn 1s ease-out forwards',
               'scan': 'scan 4s ease-in-out infinite',
+              'glitch-text': 'glitch 2.5s infinite',
+              'shudder': 'shudder 0.2s ease-in-out infinite',
             },
             keyframes: {
               fadeIn: {
@@ -40,6 +42,19 @@
               scan: {
                 '0%, 100%': { transform: 'translateY(-100%)' },
                 '50%': { transform: 'translateY(100%)' }
+              },
+              glitch: {
+                '0%': { transform: 'translate(0)' },
+                '20%': { transform: 'translate(-2px, 2px)' },
+                '40%': { transform: 'translate(-2px, -2px)' },
+                '60%': { transform: 'translate(2px, 2px)' },
+                '80%': { transform: 'translate(2px, -2px)' },
+                '100%': { transform: 'translate(0)' }
+              },
+              shudder: {
+                '0%, 100%': { transform: 'translateX(0)' },
+                '25%': { transform: 'translateX(-1px)' },
+                '75%': { transform: 'translateX(1px)' }
               }
             }
           }
@@ -79,6 +94,11 @@
         mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
         -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
       }
+      
+      /* Text Glitch Effect */
+      .text-shadow-glitch {
+        text-shadow: 2px 0 rgba(255,0,0,0.5), -2px 0 rgba(0,0,255,0.5);
+      }
 
       .custom-scrollbar::-webkit-scrollbar {
         width: 4px;
@@ -109,7 +129,9 @@
     "three": "https://aistudiocdn.com/three@^0.160.0",
     "@react-three/fiber": "https://aistudiocdn.com/@react-three/fiber@^8.15.0",
     "@react-three/drei": "https://aistudiocdn.com/@react-three/drei@^9.92.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>

@@ -4,6 +4,7 @@ import { YandereLedger } from '../types';
 
 interface Props {
   ledger: YandereLedger;
+  isActive: boolean;
 }
 
 interface Particle {
@@ -11,25 +12,20 @@ interface Particle {
   y: number;
   vx: number;
   vy: number;
+  life: number;
+  maxLife: number;
   size: number;
   color: string;
-  life: number;
 }
 
-const ReactiveCanvas: React.FC<Props> = ({ ledger }) => {
+const ReactiveCanvas: React.FC<Props> = ({ ledger, isActive }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particles = useRef<Particle[]>([]);
   const animationRef = useRef<number>(0);
 
-  // Mapping ledger to visual params
-  const traumaIntensity = ledger.traumaLevel / 100; // 0 to 1
-  const hopeIntensity = ledger.hopeLevel / 100; // 0 to 1
-  const isHighStress = ledger.fearOfAuthority > 70;
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -40,58 +36,109 @@ const ReactiveCanvas: React.FC<Props> = ({ ledger }) => {
     window.addEventListener('resize', resize);
     resize();
 
-    const createParticle = () => {
-      const isAsh = Math.random() < traumaIntensity; // More trauma = more dark ash
-      const isGold = Math.random() < (hopeIntensity * 0.3); // Rare gold motes
-
-      const x = Math.random() * canvas.width;
-      // Ash falls from top, Gold floats from bottom
-      const y = isAsh ? -10 : canvas.height + 10; 
+    const getParticleConfig = () => {
+      const trauma = ledger.traumaLevel;
+      const shame = ledger.shamePainAbyssLevel;
+      const arousal = ledger.arousalLevel;
+      const hope = ledger.hopeLevel;
 
       return {
-        x,
-        y,
-        vx: (Math.random() - 0.5) * (isHighStress ? 2 : 0.5),
-        vy: isAsh ? (Math.random() * 2 + 1) : (Math.random() * -1 - 0.5),
-        size: Math.random() * 3 + (isAsh ? 2 : 1),
-        color: isAsh ? `rgba(28, 25, 23, ${Math.random() * 0.5 + 0.2})` : `rgba(250, 204, 21, ${Math.random() * 0.8 + 0.2})`,
-        life: 1.0
+        spawnRate: Math.max(1, Math.floor(trauma / 10)),
+        // Color Logic: Deep crimson for shame, bright arterial red for arousal, dried blood otherwise
+        color: shame > 60 ? '#450a0a' : arousal > 60 ? '#ef4444' : '#7f1d1d', 
+        // Speed increases with trauma
+        speed: 0.5 + (trauma / 50), 
+        // Size increases with shame (heavier drops)
+        size: 1 + (shame / 40), 
+        // Opacity linked to trauma
+        opacity: Math.min(0.9, 0.2 + (trauma / 100)), 
+        // Turbulence (X-axis jitter) linked to arousal
+        turbulence: arousal / 50, 
+        // Gravity heavier when hope is low
+        gravity: hope < 30 ? 0.15 : 0.05, 
+        // Glow threshold
+        hasGlow: trauma > 70,
+        // Shake threshold
+        hasShake: shame > 80 || trauma > 90
       };
     };
 
     const loop = () => {
-      // Clear with trail effect
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; 
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (!isActive) return;
 
-      // Spawn rate depends on intensity
-      if (Math.random() < 0.1 + (traumaIntensity * 0.2)) {
-        particles.current.push(createParticle());
+      const config = getParticleConfig();
+      const { width, height } = canvas;
+
+      // 1. Clear / Trail Effect
+      // We use a low-opacity fillRect to create trails instead of clearRect
+      ctx.fillStyle = 'rgba(5, 5, 5, 0.15)';
+      ctx.fillRect(0, 0, width, height);
+
+      // 2. Screen Shake Logic (Canvas Jitter)
+      ctx.save();
+      if (config.hasShake) {
+        const shakeIntensity = (ledger.traumaLevel / 20);
+        const dx = (Math.random() - 0.5) * shakeIntensity;
+        const dy = (Math.random() - 0.5) * shakeIntensity;
+        ctx.translate(dx, dy);
       }
 
-      // Update & Draw
+      // 3. Spawn Logic
+      // Limit max particles for performance
+      if (particles.current.length < 500) {
+        // Spawn multiple based on rate
+        for (let i = 0; i < config.spawnRate; i++) {
+          if (Math.random() > 0.5) continue; // Throttle slightly
+          
+          particles.current.push({
+            x: Math.random() * width,
+            y: -20, // Start above screen
+            vx: (Math.random() - 0.5) * 0.5,
+            vy: Math.random() * config.speed + 1,
+            life: 1.0,
+            maxLife: 1.0,
+            size: Math.random() * config.size + 1,
+            color: config.color
+          });
+        }
+      }
+
+      // 4. Update & Draw
       for (let i = particles.current.length - 1; i >= 0; i--) {
         const p = particles.current[i];
-        
-        p.x += p.vx;
+
+        // Physics
+        p.x += p.vx + ((Math.random() - 0.5) * config.turbulence);
         p.y += p.vy;
+        p.vy += config.gravity; // Apply gravity acceleration
         p.life -= 0.005;
 
-        // Jitter effect for high fear
-        if (isHighStress) {
-           p.x += (Math.random() - 0.5) * 2;
-        }
-
+        // Drawing
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        
         ctx.fillStyle = p.color;
-        ctx.fill();
+        ctx.globalAlpha = config.opacity * p.life;
+        
+        // Glow Effect for High Trauma
+        if (config.hasGlow) {
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = '#ef4444';
+        } else {
+          ctx.shadowBlur = 0;
+        }
 
-        if (p.life <= 0 || p.y > canvas.height + 20 || p.y < -20) {
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 0; // Reset
+
+        // Cull dead particles
+        if (p.life <= 0 || p.y > height + 20) {
           particles.current.splice(i, 1);
         }
       }
 
+      ctx.restore();
       animationRef.current = requestAnimationFrame(loop);
     };
 
@@ -101,12 +148,12 @@ const ReactiveCanvas: React.FC<Props> = ({ ledger }) => {
       cancelAnimationFrame(animationRef.current);
       window.removeEventListener('resize', resize);
     };
-  }, [ledger]);
+  }, [ledger, isActive]);
 
   return (
     <canvas 
       ref={canvasRef} 
-      className="absolute inset-0 z-0 pointer-events-none mix-blend-screen"
+      className="absolute inset-0 z-5 pointer-events-none mix-blend-screen opacity-80"
     />
   );
 };

@@ -1,6 +1,8 @@
+
 import React, { useState, useRef } from 'react';
 import { Camera, Film, Wand2, Upload, Loader2, Eye, X } from 'lucide-react';
-import { animateImageWithVeo, distortImage, analyzeArcaneRelic } from '../services/geminiService';
+import { analyzeArcaneRelic } from '../services/geminiService';
+import { animateImageWithVeo, distortImage } from '../services/mediaService';
 import { ToolMode, GameState } from '../types';
 
 interface Props {
