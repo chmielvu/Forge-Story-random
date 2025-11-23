@@ -1,5 +1,3 @@
-
-
 import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { MaraThought, MaraContext, MaraDNA } from "../types";
 

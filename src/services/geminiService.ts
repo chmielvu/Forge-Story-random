@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { SYSTEM_INSTRUCTION, DIRECTOR_MANDATE_PROMPT } from "../constants";
 import { DirectorOutput, DirectorResponse, GameState } from "../types";
@@ -26,7 +27,9 @@ export const generateNextTurn = async (
     // Extract specific visual prompt if available
     let visualPrompt = "Dark erotic academia scene, baroque brutalism, chiaroscuro";
     if (directorResponse.visualAudioAssets && directorResponse.visualAudioAssets.length > 0) {
-      visualPrompt = JSON.stringify(directorResponse.visualAudioAssets[0].visualPrompt);
+      // Safely stringify if it's an object, or use as is
+      const vp = directorResponse.visualAudioAssets[0].visualPrompt;
+      visualPrompt = typeof vp === 'string' ? vp : JSON.stringify(vp);
     }
 
     return {
@@ -38,7 +41,11 @@ export const generateNextTurn = async (
           edges_added: directorResponse.graphDelta?.edges_added || [],
           edges_removed: directorResponse.graphDelta?.edges_removed || []
       },
-      choices: directorResponse.choices || ["Continue."]
+      choices: directorResponse.choices || ["Continue."],
+      
+      // Pass through debug info
+      simulationLog: simulation.simulationLog,
+      debugTrace: directorResponse.debugTrace || null
     };
 
   } catch (error) {
@@ -48,7 +55,9 @@ export const generateNextTurn = async (
       narrative: "The simulation fractures. The stone walls dissolve into bleeding code. You feel a profound sense of wrongness, as if the universe itself has rejected your choice. Try again.",
       visual_prompt: "Abstract digital horror, bleeding pixels, red and black static.",
       choices: ["Stabilize consciousness.", "Reboot system."],
-      state_updates: {}
+      state_updates: {},
+      simulationLog: `CRITICAL ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      debugTrace: "System crash during generateNextTurn"
     };
   }
 };

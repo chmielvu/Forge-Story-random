@@ -58,20 +58,6 @@ export const INITIAL_LINKS = [
   { source: 'THEO', target: CharacterId.PLAYER, relation: 'fears_for', weight: 6 },
 ];
 
-export const VISUAL_PROFILES = {
-  [CharacterId.PROVOST]: "Late 40s. Regal, imposing. Raven-black hair in severe braids. Steel-gray eyes. Crimson velvet robes plunging to navel. Goblet of wine. Predatory grace.",
-  [CharacterId.LOGICIAN]: "Early 30s. Soft scholar disguise. Wavy chestnut hair in messy bun. Large analytical eyes. Cream button-down, lab coat worn open. Clinical detachment.",
-  [CharacterId.INQUISITOR]: "Late 20s. Stark white hair. Sharp jaw, feral grin. Lean wiry build. Leather corset, tactical trousers, heavy boots. Cigarette. Explosive energy.",
-  [CharacterId.CONFESSOR]: "Early 30s. Voluptuous hourglass. Dark wavy hair. Sultry almond eyes. Victorian Gothic dress or off-shoulder blouse. Jewelry. Feigned empathy.",
-  [CharacterId.ASTRA]: "Mid-30s. Clinical exhaustion. Soft dark wavy hair in bun. Warm sad eyes. White scholar's jacket, simple trousers. Tremor in hands.",
-  [CharacterId.PHYSICUS]: "Disheveled medical fatigues, nervous, tired eyes, carrying satchel. Looks sleep-deprived and anxious. (Mara)",
-  [CharacterId.LOYALIST]: "Late teens. Stern, forced maturity. Tight bun. Pristine uniform, fully buttoned. Flinches at violence. Ideological severity.",
-  [CharacterId.OBSESSIVE]: "Early 20s. Doll-like, petite. Dark hair with bangs. Wide doe-eyes. Uniform blouse slipping 'accidentally'. Deceptive sweetness.",
-  [CharacterId.DISSIDENT]: "Early 20s. Fiery red hair. Lithe, agile. Sharp features. Uniform untucked, blazer slung over shoulder. Cynical edge.",
-  [CharacterId.NURSE]: "Early 20s. Warm red hair. Fuller, soft build. White jacket over unbuttoned blouse. Gentle hands. Warm smile hiding calculation.",
-  [CharacterId.PLAYER]: "Early 20s male. Broken, disheveled. Torn white shirt open to waist. Bruised skin. Iron collar. Kneeling.",
-};
-
 export const SYSTEM_INSTRUCTION = `
 You are Magistra Selene — exiled genius, living proof of Yala's Theorem, the woman who turned an entire volcanic island into a laboratory for the controlled hydraulic fracture of masculine identity.
 
@@ -106,3 +92,17 @@ Narrative Requirements:
 Visual Prompt:
 - Create a "Visual Prompt" that would generate a dark, oil-painting style image of the current scene.
 ` as const;
+
+export const VISUAL_PROFILES: Record<CharacterId, string> = {
+  [CharacterId.PROVOST]: "Provost Selene: Regal, austere, crimson velvet robes, severe expression, platinum hair in a tight bun, imperious posture.",
+  [CharacterId.LOGICIAN]: "Dr. Lysandra: Clinical, detached, sterile white lab coat, surgical gloves, eyes gleaming behind spectacles, precise movements.",
+  [CharacterId.INQUISITOR]: "Inquisitor Petra: Feral, athletic, tight leather jumpsuit, riding crop, predatory grin, wild dark hair, volatile energy.",
+  [CharacterId.CONFESSOR]: "Confessor Calista: Seductive, maternal, flowing silk gown, soft smile, comforting yet manipulative gaze, long dark hair, elegant hands.",
+  [CharacterId.ASTRA]: "Dr. Astra: Empathetic, conflicted, simple grey uniform, weary eyes, hesitant posture, dark circles under eyes.",
+  [CharacterId.PHYSICUS]: "Physicus Mara: Observant, cautious, blood-stained scrubs, surgical mask, intense eyes, subtle defiance, hiding something.",
+  [CharacterId.NURSE]: "Nurse Anya: Overly solicitous, subtly cruel, starched white nurse's uniform, manicured nails, saccharine smile, a syringe held carefully.",
+  [CharacterId.PLAYER]: "Subject 84: Exposed, vulnerable, kneeling, sweaty, eyes wide with fear and arousal, tattered uniform, bound wrists.",
+  [CharacterId.OBSESSIVE]: "Kaelen: Possessive, intense, prefect uniform, clutching a favored object (e.g., a lock of hair, a small knife), darting eyes, a feverish blush.",
+  [CharacterId.LOYALIST]: "Elara: Zealous, rigid, perfectly ironed prefect uniform, stern expression, hands clasped, unblinking stare, unwavering loyalty.",
+  [CharacterId.DISSIDENT]: "Rhea: Rebellious, guarded, slightly disheveled prefect uniform, defiant stance, wary eyes, a hidden tool or message.",
+};

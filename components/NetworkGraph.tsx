@@ -1,14 +1,20 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
-import { GraphNode, GraphLink, CharacterId } from '../types';
+import { GraphNode, GraphLink, CharacterId, YandereLedger } from '../types';
 
 interface Props {
   nodes: GraphNode[];
   links: GraphLink[];
+  ledger?: YandereLedger; 
+  executedCode?: string; // New prop to show code execution status
 }
 
-const NetworkGraph: React.FC<Props> = ({ nodes, links }) => {
+const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger, executedCode }) => {
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Default values if ledger is missing
+  const trauma = ledger?.traumaLevel || 0;
+  const hope = ledger?.hopeLevel || 50;
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -23,71 +29,84 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links }) => {
       .attr("viewBox", [0, 0, width, height]);
 
     // CRITICAL FIX: Deep clone data to prevent D3 from mutating React props/state
-    // This fixes the "node not found" error on re-renders
     const simulationNodes = JSON.parse(JSON.stringify(nodes));
     const simulationLinks = JSON.parse(JSON.stringify(links));
 
     // Simulation setup
     const simulation = d3.forceSimulation(simulationNodes)
       .force("link", d3.forceLink(simulationLinks).id((d: any) => d.id).distance(100))
-      .force("charge", d3.forceManyBody().strength(-200))
+      .force("charge", d3.forceManyBody().strength(-300))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collide", d3.forceCollide().radius(30));
+      .force("collide", d3.forceCollide().radius(40));
 
-    // Render Links
+    // --- RENDER LINKS ---
+    const getLinkColor = (relation: string) => {
+        const r = relation.toLowerCase();
+        if (r.includes('hate') || r.includes('hurt') || r.includes('hunt')) return "#be123c"; // Crimson
+        if (r.includes('love') || r.includes('bond') || r.includes('protect')) return "#facc15"; // Gold
+        return "#44403c"; // Stone/Neutral
+    };
+
     const link = svg.append("g")
-      .attr("stroke", "#44403c")
-      .attr("stroke-opacity", 0.6)
       .selectAll("line")
       .data(simulationLinks)
       .join("line")
+      .attr("stroke", (d: any) => getLinkColor(d.relation))
+      .attr("stroke-opacity", (d: any) => 0.4 + (d.weight / 20))
       .attr("stroke-width", (d: any) => Math.sqrt(d.weight) * 1.5);
 
-    // Render Nodes
+    // --- RENDER NODES ---
     const node = svg.append("g")
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 1.5)
       .selectAll("circle")
       .data(simulationNodes)
       .join("circle")
-      .attr("r", (d: any) => d.group === 'subject' ? 10 : 15)
+      .attr("r", (d: any) => {
+          let base = d.group === 'subject' ? 8 : 14;
+          // Player node pulses with hope
+          if (d.id === CharacterId.PLAYER) base += (hope / 20);
+          return base;
+      })
       .attr("fill", (d: any) => {
         if (d.id === CharacterId.PLAYER) return "#e7e5e4";
         if (d.group === 'faculty') return "#881337"; // Crimson
-        return "#b45309"; // Gold for Prefects
+        return "#ca8a04"; // Darker Gold
       })
+      .attr("stroke", "#000")
+      .attr("stroke-width", 1.5)
       .call(drag(simulation) as any);
 
-    // Render Labels
+    // --- RENDER LABELS ---
     const labels = svg.append("g")
       .selectAll("text")
       .data(simulationNodes)
       .join("text")
       .text((d: any) => d.label)
       .attr("font-size", "10px")
-      .attr("fill", "#a8a29e")
+      .attr("fill", (d: any) => d.group === 'faculty' ? "#facc15" : "#a8a29e")
       .attr("dx", 18)
       .attr("dy", 4)
-      .attr("font-family", "JetBrains Mono");
+      .attr("font-family", "JetBrains Mono")
+      .style("text-transform", "uppercase")
+      .style("letter-spacing", "0.1em");
 
-    // Tooltip for edges (simple)
-    link.append("title")
-      .text((d: any) => d.relation);
+    // --- TOOLTIPS ---
+    link.append("title").text((d: any) => `${d.source.label} → ${d.target.label}: ${d.relation}`);
+    node.append("title").text((d: any) => `${d.label} [Val: ${d.val}]`);
 
+    // --- TICK FUNCTION with TRAUMA JITTER ---
     simulation.on("tick", () => {
+      const jitter = trauma > 70 ? (trauma - 70) * 0.05 : 0;
       link
-        .attr("x1", (d: any) => d.source.x)
-        .attr("y1", (d: any) => d.source.y)
-        .attr("x2", (d: any) => d.target.x)
-        .attr("y2", (d: any) => d.target.y);
-
+        .attr("x1", (d: any) => d.source.x + (Math.random() - 0.5) * jitter)
+        .attr("y1", (d: any) => d.source.y + (Math.random() - 0.5) * jitter)
+        .attr("x2", (d: any) => d.target.x + (Math.random() - 0.5) * jitter)
+        .attr("y2", (d: any) => d.target.y + (Math.random() - 0.5) * jitter);
       node
-        .attr("cx", (d: any) => d.x)
-        .attr("cy", (d: any) => d.y);
-
+        .attr("cx", (d: any) => d.x + (Math.random() - 0.5) * jitter)
+        .attr("cy", (d: any) => d.y + (Math.random() - 0.5) * jitter);
       labels
-        .attr("x", (d: any) => d.x)
-        .attr("y", (d: any) => d.y);
+        .attr("x", (d: any) => d.x + (Math.random() - 0.5) * jitter)
+        .attr("y", (d: any) => d.y + (Math.random() - 0.5) * jitter);
     });
 
     function drag(simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>) {
@@ -96,37 +115,38 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links }) => {
         event.subject.fx = event.subject.x;
         event.subject.fy = event.subject.y;
       }
-
       function dragged(event: any) {
         event.subject.fx = event.x;
         event.subject.fy = event.y;
       }
-
       function dragended(event: any) {
         if (!event.active) simulation.alphaTarget(0);
         event.subject.fx = null;
         event.subject.fy = null;
       }
-
-      return d3.drag()
-        .on("start", dragstarted)
-        .on("drag", dragged)
-        .on("end", dragended);
+      return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
     }
 
-    // Cleanup function
     return () => {
       simulation.stop();
     };
 
-  }, [nodes, links]);
+  }, [nodes, links, trauma, hope]);
 
   return (
-    <div className="w-full h-64 bg-black border border-stone-800 rounded-lg relative">
+    <div className={`w-full h-full min-h-[300px] flex flex-col bg-forge-black border border-stone-800 rounded-sm relative transition-all duration-500 ${trauma > 80 ? 'border-forge-crimson/30' : ''}`}>
        <div className="absolute top-2 left-2 text-xs font-mono text-forge-subtle tracking-widest z-10 pointer-events-none">
-        NETWORKX::RELATION_MATRIX
+        RELATION_MATRIX_V4 {trauma > 90 && <span className="text-red-600 animate-pulse">:: UNSTABLE</span>}
       </div>
-      <svg ref={svgRef} className="w-full h-full" />
+      <svg ref={svgRef} className="w-full flex-1" />
+      
+      {/* Code Execution Overlay */}
+      {executedCode && (
+        <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm p-2 border-t border-stone-800 max-h-24 overflow-y-auto">
+           <div className="font-mono text-[9px] text-green-500 mb-1">$ executing_graph_logic.py</div>
+           <pre className="font-mono text-[8px] text-stone-400 whitespace-pre-wrap">{executedCode}</pre>
+        </div>
+      )}
     </div>
   );
 };

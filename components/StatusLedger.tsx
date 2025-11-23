@@ -7,7 +7,6 @@ interface Props {
 }
 
 const StatusLedger: React.FC<Props> = ({ ledger }) => {
-  // Corrected and completed data array for RadarChart based on YandereLedger properties
   const data = [
     { subject: 'Integrity', A: ledger.physicalIntegrity, fullMark: 100 },
     { subject: 'Trauma', A: ledger.traumaLevel, fullMark: 100 },
@@ -22,22 +21,22 @@ const StatusLedger: React.FC<Props> = ({ ledger }) => {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data} className="font-mono text-xs">
-        <PolarGrid stroke="#3f3f46" />
-        <PolarAngleAxis dataKey="subject" tick={{ fill: '#a8a29e' }} />
-        <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: '#a8a29e', fontSize: '8px' }} />
-        <Radar name="Subject 84" dataKey="A" stroke="#be123c" fill="#be123c" fillOpacity={0.6} />
+        <PolarGrid stroke="#292524" />
+        <PolarAngleAxis dataKey="subject" tick={{ fill: '#78716c' }} />
+        <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: '#78716c', fontSize: '8px' }} />
+        <Radar name="Subject 84" dataKey="A" stroke="#facc15" fill="#facc15" fillOpacity={0.4} />
         <Tooltip
           contentStyle={{
-            backgroundColor: 'rgba(28,25,23,0.9)',
-            borderColor: '#be123c',
-            color: '#e7e5e4',
+            backgroundColor: 'rgba(5,5,5,0.9)',
+            borderColor: '#facc15',
+            color: '#facc15',
             fontSize: '10px',
             fontFamily: 'monospace',
             textTransform: 'uppercase',
             padding: '8px',
           }}
           itemStyle={{ color: '#e7e5e4' }}
-          labelStyle={{ color: '#be123c', marginBottom: '4px' }}
+          labelStyle={{ color: '#facc15', marginBottom: '4px' }}
         />
       </RadarChart>
     </ResponsiveContainer>

@@ -83,6 +83,8 @@ export interface DirectorOutput {
     edges_removed?: { source: string; target: string }[];
   };
   choices: string[];
+  simulationLog?: string; // ADDED
+  debugTrace?: string; // ADDED
 }
 
 // New Director Response Schema (PROMPT 6)
@@ -274,7 +276,7 @@ export interface FacultyCollectiveOutput {
     perFacultyPrivate: Record<string, { hiddenProposal: string|null, privateStateDelta: any }>;
   };
   ledgerUpdates: { delta: Partial<YandereLedger> };
-  visualCueHints: Array<{ assetType: string, promptTemplate: any, seed: number }>;
+  visualCueHints: Array<{ assetType: string, promptTemplate: any; seed: number }>;
   debugTrace: string|null;
 }
 

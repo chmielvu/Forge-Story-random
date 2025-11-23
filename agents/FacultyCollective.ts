@@ -1,6 +1,3 @@
-
-
-
 import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { FacultyCollectiveOutput, GameState, PrefectDecision } from "../types";
 

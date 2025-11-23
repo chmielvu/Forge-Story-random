@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Camera, Film, Wand2, Upload, Loader2, Eye, X } from 'lucide-react';
 import { analyzeArcaneRelic } from '../services/geminiService';

@@ -1,4 +1,3 @@
-
 import { CharacterId, OceanTraits, AgentArchetype, NPCAgentState } from "../types";
 import { VISUAL_PROFILES } from "../constants";
 

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { LogEntry, YandereLedger } from '../types';
 import { Brain, Volume2, Activity, Square, Play, Pause } from 'lucide-react';

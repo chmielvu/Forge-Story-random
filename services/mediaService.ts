@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { YandereLedger, PrefectDNA, CharacterId } from "../types";
 import { VISUAL_PROFILES } from "../constants";
@@ -10,14 +9,22 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const VISUAL_MANDATE = {
   style: "grounded dark erotic academia + baroque brutalism + vampire noir + intimate psychological horror + rembrandt caravaggio lighting",
   technical: {
-    camera: "intimate 50mm or 85mm close-up",
-    lighting: "single gaslight, extreme chiaroscuro, shadows in cleavage and slits"
+    camera: "intimate 50mm or 85mm close-up, shallow depth of field",
+    // CHANGE: Added "rim lighting" and "volumetric" to separate subject from background
+    lighting: "cinematic rembrandt lighting, volumetric gaslight with cool blue rim-light, deep shadows but detailed midtones, atmospheric fog"
   },
   mood: "predatory intimacy, clinical amusement, suffocating dread, weaponized sexuality",
   quality: "restrained masterpiece oil painting, no fantasy elements, high detail on skin texture and fabric strain",
   negative_prompt: [
     "bright colors", "cheerful", "modern architecture", "soft focus", "natural daylight", 
-    "explicit nudity", "graphic violence", "anime", "cartoon", "3d render", "low res"
+    "explicit nudity", "graphic violence", "anime", "cartoon", "3d render", "low res",
+    // ADDED: Negative prompts for better visibility
+    "underexposed", 
+    "crushed blacks", 
+    "illegible", 
+    "too dark", 
+    "flat lighting",
+    "muddy textures"
   ]
 };
 
@@ -119,7 +126,8 @@ export function buildVisualPrompt(
   const lowerContext = sceneContext.toLowerCase();
   
   if (lowerContext.includes("dock") || lowerContext.includes("arrival")) environment = "volcanic rock dock, stormy sky, weeping stone, ocean spray, iron gates, monolithic architecture";
-  else if (lowerContext.includes("office") || lowerContext.includes("study") || lowerContext.includes("selene")) environment = "mahogany desk, velvet curtains, wine goblet, oppressive luxury, bookshelves, fireplace, persian rugs";
+  // CHANGE: Added emissive elements to office/selene
+  else if (lowerContext.includes("office") || lowerContext.includes("study") || lowerContext.includes("selene")) environment = "mahogany desk, glowing fireplace casting warm light, velvet curtains, wine goblet catching the light, oppressive luxury, bookshelves, fireplace, persian rugs";
   else if (lowerContext.includes("infirmary") || lowerContext.includes("clinic") || lowerContext.includes("lab") || lowerContext.includes("lysandra")) environment = "tiled walls, surgical tools, sterile light, medical cabinet, anatomical charts, stainless steel, cold atmosphere";
   else if (lowerContext.includes("cell") || lowerContext.includes("cage") || lowerContext.includes("dungeon")) environment = "rusted iron bars, damp straw, stone walls, claustrophobic, chains, dripping water, oubliette";
   else if (lowerContext.includes("lecture") || lowerContext.includes("hall") || lowerContext.includes("theater") || lowerContext.includes("rotunda")) environment = "tiered lecture hall, chalkboard, imposing podium, dust motes, spotlights, panopticon layout";
@@ -137,7 +145,9 @@ export function buildVisualPrompt(
     // Shame -> Lighting exposure
     if (ledger.shamePainAbyssLevel > 50) promptTechnical.lighting = "high-contrast, harsh shadows";
     if (ledger.shamePainAbyssLevel > 80) {
-        promptTechnical.lighting = "harsh spotlight from above, surrounding pitch black, exposed";
+        // CHANGE: "surrounding pitch black" -> "surrounding oppressive shadows"
+        // CHANGE: Added "specular highlights" to ensure skin/sweat reflects light even in dark
+        promptTechnical.lighting = "harsh clinical spotlight from above, surrounding oppressive shadows, high contrast specular highlights on skin, visible sweat texture";
         moodModifiers.push("humiliated-posture", "tearing-up", "flushed-skin", "avoiding-eye-contact", "covering-self");
     }
 

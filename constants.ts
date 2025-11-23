@@ -1,7 +1,7 @@
-
 import { GraphNode, CharacterId, YandereLedger } from './types';
 
 export const INITIAL_LEDGER: YandereLedger = {
+  subjectId: 'Subject_84',
   physicalIntegrity: 100,
   traumaLevel: 0,
   shamePainAbyssLevel: 0,
@@ -12,7 +12,10 @@ export const INITIAL_LEDGER: YandereLedger = {
   capacityForManipulation: 10,
   arousalLevel: 0,
   prostateSensitivity: 0,
-  ruinedOrgasmCount: 0
+  ruinedOrgasmCount: 0,
+  castrationAnxiety: 0,
+  traumaBonds: {},
+  phase: 'alpha'
 };
 
 export const INITIAL_NODES: (GraphNode & { ocean?: { O: number, C: number, E: number, A: number, N: number }, traits?: string[] })[] = [
@@ -88,3 +91,17 @@ Narrative Requirements:
 Visual Prompt:
 - Create a "Visual Prompt" that would generate a dark, oil-painting style image of the current scene.
 ` as const;
+
+export const VISUAL_PROFILES: Record<CharacterId, string> = {
+  [CharacterId.PROVOST]: "Provost Selene: Regal, austere, crimson velvet robes, severe expression, platinum hair in a tight bun, imperious posture.",
+  [CharacterId.LOGICIAN]: "Dr. Lysandra: Clinical, detached, sterile white lab coat, surgical gloves, eyes gleaming behind spectacles, precise movements.",
+  [CharacterId.INQUISITOR]: "Inquisitor Petra: Feral, athletic, tight leather jumpsuit, riding crop, predatory grin, wild dark hair, volatile energy.",
+  [CharacterId.CONFESSOR]: "Confessor Calista: Seductive, maternal, flowing silk gown, soft smile, comforting yet manipulative gaze, long dark hair, elegant hands.",
+  [CharacterId.ASTRA]: "Dr. Astra: Empathetic, conflicted, simple grey uniform, weary eyes, hesitant posture, dark circles under eyes.",
+  [CharacterId.PHYSICUS]: "Physicus Mara: Observant, cautious, blood-stained scrubs, surgical mask, intense eyes, subtle defiance, hiding something.",
+  [CharacterId.NURSE]: "Nurse Anya: Overly solicitous, subtly cruel, starched white nurse's uniform, manicured nails, saccharine smile, a syringe held carefully.",
+  [CharacterId.PLAYER]: "Subject 84: Exposed, vulnerable, kneeling, sweaty, eyes wide with fear and arousal, tattered uniform, bound wrists.",
+  [CharacterId.OBSESSIVE]: "Kaelen: Possessive, intense, prefect uniform, clutching a favored object (e.g., a lock of hair, a small knife), darting eyes, a feverish blush.",
+  [CharacterId.LOYALIST]: "Elara: Zealous, rigid, perfectly ironed prefect uniform, stern expression, hands clasped, unblinking stare, unwavering loyalty.",
+  [CharacterId.DISSIDENT]: "Rhea: Rebellious, guarded, slightly disheveled prefect uniform, defiant stance, wary eyes, a hidden tool or message.",
+};
