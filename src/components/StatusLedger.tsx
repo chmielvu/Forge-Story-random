@@ -1,21 +1,24 @@
+
 import React from 'react';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Tooltip } from 'recharts';
 import { YandereLedger } from '../types';
 
 interface Props {
-  ledger: YandereLedger;
+  ledger?: YandereLedger;
 }
 
 const StatusLedger: React.FC<Props> = ({ ledger }) => {
+  if (!ledger) return null;
+
   const data = [
-    { subject: 'Integrity', A: ledger.physicalIntegrity, fullMark: 100 },
-    { subject: 'Trauma', A: ledger.traumaLevel, fullMark: 100 },
-    { subject: 'Shame', A: ledger.shamePainAbyssLevel, fullMark: 100 },
-    { subject: 'Compliance', A: ledger.complianceScore, fullMark: 100 },
-    { subject: 'Fear', A: ledger.fearOfAuthority, fullMark: 100 },
-    { subject: 'Validation', A: ledger.desireForValidation, fullMark: 100 },
-    { subject: 'Manipulation', A: ledger.capacityForManipulation, fullMark: 100 },
-    { subject: 'Hope', A: ledger.hopeLevel, fullMark: 100 },
+    { subject: 'Integrity', A: ledger.physicalIntegrity || 0, fullMark: 100 },
+    { subject: 'Trauma', A: ledger.traumaLevel || 0, fullMark: 100 },
+    { subject: 'Shame', A: ledger.shamePainAbyssLevel || 0, fullMark: 100 },
+    { subject: 'Compliance', A: ledger.complianceScore || 0, fullMark: 100 },
+    { subject: 'Fear', A: ledger.fearOfAuthority || 0, fullMark: 100 },
+    { subject: 'Validation', A: ledger.desireForValidation || 0, fullMark: 100 },
+    { subject: 'Manipulation', A: ledger.capacityForManipulation || 0, fullMark: 100 },
+    { subject: 'Hope', A: ledger.hopeLevel || 0, fullMark: 100 },
   ];
 
   return (

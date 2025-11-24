@@ -307,13 +307,7 @@ export interface FilteredSceneContext {
 }
 
 // --- MULTIMODAL SYSTEM TYPES ---
-export enum MediaStatus {
-  'idle' = 'idle',
-  'pending' = 'pending',
-  'inProgress' = 'inProgress', // Added inProgress status
-  'ready' = 'ready',
-  'error' = 'error',
-}
+export type MediaStatus = 'idle' | 'pending' | 'inProgress' | 'ready' | 'error';
 
 export interface MultimodalTurn {
   id: string; // Matches log entry ID

@@ -4,12 +4,12 @@ import { YandereLedger } from '../types';
 
 interface Props {
   children: React.ReactNode;
-  ledger: YandereLedger;
+  ledger?: YandereLedger;
 }
 
 const DistortionLayer: React.FC<Props> = ({ children, ledger }) => {
-  const trauma = ledger.traumaLevel;
-  const shame = ledger.shamePainAbyssLevel;
+  const trauma = ledger?.traumaLevel || 0;
+  const shame = ledger?.shamePainAbyssLevel || 0;
 
   // Dynamic styles based on stats
   const blurAmount = Math.max(0, (trauma - 50) / 20); // Starts blurring after 50 trauma

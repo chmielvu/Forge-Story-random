@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { useGameStore } from './state/gameStore';
 import { turnService } from './state/turnService';
@@ -15,11 +16,7 @@ import { Menu, Terminal, Activity, Zap, X } from 'lucide-react';
 const App: React.FC = () => {
   // Store Hooks
   const { 
-    ledger, 
-    nodes, 
-    links, 
-    turn, 
-    location,
+    gameState,
     logs,
     choices,
     isThinking,
@@ -36,6 +33,8 @@ const App: React.FC = () => {
     playTurn,
     pauseAudio,
   } = useGameStore();
+
+  const { ledger, nodes, links, turn, location } = gameState;
 
   // Local UI State (for purely visual toggles not needed in global store)
   const [canvasActive, setCanvasActive] = React.useState(true);

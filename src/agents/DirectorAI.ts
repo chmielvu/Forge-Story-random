@@ -129,4 +129,103 @@ export class DirectorAI {
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-                scenePlan: {
+                scenePlan: { 
+                    type: Type.OBJECT,
+                    properties: {
+                        planId: { type: Type.STRING },
+                        selectedActions: { 
+                            type: Type.ARRAY, 
+                            items: { 
+                                type: Type.OBJECT,
+                                properties: {
+                                    actorType: { type: Type.STRING },
+                                    actorId: { type: Type.STRING },
+                                    actionType: { type: Type.STRING },
+                                    actionDetail: { type: Type.STRING },
+                                    targetId: { type: Type.STRING, nullable: true },
+                                    publicUtterance: { type: Type.STRING, nullable: true }
+                                }
+                            } 
+                        },
+                        executionOrder: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        safetyFlags: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    }
+                },
+                ledgerDelta: { type: Type.OBJECT, additionalProperties: true },
+                graphDelta: {
+                    type: Type.OBJECT,
+                    properties: {
+                        edges_added: { 
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    source: { type: Type.STRING },
+                                    target: { type: Type.STRING },
+                                    relation: { type: Type.STRING },
+                                    weight: { type: Type.NUMBER }
+                                }
+                            }
+                        },
+                        edges_removed: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    source: { type: Type.STRING },
+                                    target: { type: Type.STRING }
+                                }
+                            }
+                        }
+                    }
+                },
+                publicRender: { type: Type.STRING },
+                directorDecisions: {
+                    type: Type.OBJECT,
+                    properties: {
+                        acceptedProposals: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { origin: { type: Type.STRING }, summary: { type: Type.STRING } } } },
+                        rejectedProposals: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { origin: { type: Type.STRING }, reason: { type: Type.STRING } } } },
+                        modifiedProposals: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { origin: { type: Type.STRING }, newProposal: { type: Type.STRING } } } }
+                    }
+                },
+                agentDirectives: { 
+                    type: Type.ARRAY, 
+                    items: { 
+                        type: Type.OBJECT, 
+                        properties: { agentId: { type: Type.STRING }, directiveType: { type: Type.STRING }, payload: { type: Type.OBJECT, additionalProperties: true } } 
+                    } 
+                },
+                visualAudioAssets: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: { id: { type: Type.STRING }, visualPrompt: { type: Type.OBJECT, additionalProperties: true }, audioPrompt: { type: Type.OBJECT, additionalProperties: true }, seed: { type: Type.NUMBER } }
+                    }
+                },
+                debugTrace: { type: Type.STRING, nullable: true },
+                choices: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["scenePlan", "ledgerDelta", "publicRender", "directorDecisions", "visualAudioAssets", "choices"]
+          },
+          temperature: 1.1,
+          thinkingConfig: { thinkingBudget: 4096 }, // Deep Think for Orchestration
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ]
+        }
+      });
+
+      const text = response.text || "{}";
+      return JSON.parse(text) as DirectorResponse;
+
+    } catch (error) {
+      console.error("DirectorAI Error:", error);
+      throw error; // Re-throw to be handled by service
+    }
+  }
+}
+
+export const directorAI = new DirectorAI();

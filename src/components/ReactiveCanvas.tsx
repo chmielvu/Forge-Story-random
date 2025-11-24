@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { YandereLedger } from '../types';
 
 interface Props {
-  ledger: YandereLedger;
+  ledger?: YandereLedger;
   isActive: boolean;
 }
 
@@ -37,10 +37,11 @@ const ReactiveCanvas: React.FC<Props> = ({ ledger, isActive }) => {
     resize();
 
     const getParticleConfig = () => {
-      const trauma = ledger.traumaLevel;
-      const shame = ledger.shamePainAbyssLevel;
-      const arousal = ledger.arousalLevel;
-      const hope = ledger.hopeLevel;
+      // Default safe values if ledger is missing
+      const trauma = ledger?.traumaLevel || 0;
+      const shame = ledger?.shamePainAbyssLevel || 0;
+      const arousal = ledger?.arousalLevel || 0;
+      const hope = ledger?.hopeLevel || 50;
 
       return {
         spawnRate: Math.max(1, Math.floor(trauma / 10)),
@@ -77,7 +78,7 @@ const ReactiveCanvas: React.FC<Props> = ({ ledger, isActive }) => {
       // 2. Screen Shake Logic (Canvas Jitter)
       ctx.save();
       if (config.hasShake) {
-        const shakeIntensity = (ledger.traumaLevel / 20);
+        const shakeIntensity = ((ledger?.traumaLevel || 0) / 20);
         const dx = (Math.random() - 0.5) * shakeIntensity;
         const dy = (Math.random() - 0.5) * shakeIntensity;
         ctx.translate(dx, dy);

@@ -1,3 +1,4 @@
+
 # Multimodal Zustand Integration Guide
 
 ## Overview
@@ -10,7 +11,7 @@ This guide explains how to integrate the complete multimodal Zustand slice into 
 
 ### Core State Management
 
-1. **`state/multimodalSlice.ts`**
+1. **`src/state/multimodalSlice.ts`**
 
   * Complete multimodal slice with types and actions
 
@@ -18,7 +19,7 @@ This guide explains how to integrate the complete multimodal Zustand slice into 
 
   * ~600 lines of production-ready code
 
-2. **`state/gameStore.ts`**
+2. **`src/state/gameStore.ts`**
 
   * Combines core game state + multimodal slice
 
@@ -26,7 +27,7 @@ This guide explains how to integrate the complete multimodal Zustand slice into 
 
   * Replaces your existing `gameStore.ts`
 
-3. **`state/stateHelpers.ts`**
+3. **`src/state/stateHelpers.ts`**
 
   * Pure functions for state updates
 
@@ -34,7 +35,7 @@ This guide explains how to integrate the complete multimodal Zustand slice into 
 
 ### Services
 
-1. **`state/mediaController.ts`**
+1. **`src/state/mediaController.ts`**
 
   * Orchestrates image/audio/video generation
 
@@ -42,7 +43,7 @@ This guide explains how to integrate the complete multimodal Zustand slice into 
 
   * Batch operations and preloading
 
-2. **`state/turnService.ts`**
+2. **`src/state/turnService.ts`**
 
   * Updated turn service with multimodal registration
 
@@ -52,7 +53,7 @@ This guide explains how to integrate the complete multimodal Zustand slice into 
 
 ### UI Components
 
-1. **`components/MediaPanel.tsx`**
+1. **`src/components/MediaPanel.tsx`**
 
   * Complete media viewer component
 
@@ -60,7 +61,7 @@ This guide explains how to integrate the complete multimodal Zustand slice into 
 
   * Timeline navigation controls
 
-2. **`components/DevOverlay.tsx`**
+2. **`src/components/DevOverlay.tsx`**
 
   * Extended dev console with multimodal tab
 
@@ -82,30 +83,34 @@ npm install zustand
 
 Replace these existing files with the new versions:
 
-* `state/gameStore.ts` (This file is updated with multimodal integration)
+* `src/state/gameStore.ts` → `src/state/gameStore.ts`
 
-* `state/turnService.ts` (This file is updated with multimodal integration)
+* `src/state/turnService.ts` → `src/state/turnService.ts`
 
-* `components/DevOverlay.tsx` (This file is updated with multimodal integration)
+* `src/components/DevOverlay.tsx` → `src/components/DevOverlay.tsx`
 
 ### Step 3: Add New Files
 
 Copy these new files into your project:
 
-* `state/multimodalSlice.ts`
+* `src/state/multimodalSlice.ts`
 
-* `state/mediaController.ts`
+* `src/state/mediaController.ts`
 
-* `components/MediaPanel.tsx`
+* `src/components/MediaPanel.tsx`
 
 ### Step 4: Update Imports
 
-In all files that import from `gameStore` or `turnService`, ensure they point to the main files:
+In all files that import from `gameStore` or `turnService`, update:
 
 ```ts
-// Example: In App.tsx or other components
-import { useGameStore } from './state/gameStore'; // No longer .integrated suffix
-import { turnService } from './state/turnService'; // No longer .integrated suffix
+// Old
+import { useGameStore } from './state/gameStore';
+import { runPlayerAction } from './state/turnService';
+
+// New
+import { useGameStore } from './state/gameStore';
+import { runPlayerAction } from './state/turnService';
 ```
 
 ### Step 5: Update App.tsx
@@ -113,9 +118,9 @@ import { turnService } from './state/turnService'; // No longer .integrated suff
 Add the MediaPanel to your layout:
 
 ```tsx
-import { MediaPanel } from './components/MediaPanel';
+import MediaPanel from './components/MediaPanel';
 
-// In your render, within the main layout grid:
+// In your render:
 <div className="flex-1 max-w-xl space-y-8 pt-10">
     <h2 className="font-display text-3xl text-forge-gold border-b border-forge-gold/30 pb-4">Multimodal Timeline</h2>
     <div className="h-[400px] w-full border border-stone-800 rounded-sm overflow-hidden">
@@ -124,11 +129,9 @@ import { MediaPanel } from './components/MediaPanel';
 </div>
 ```
 
-*Note: The example above places the `MediaPanel` inside the main menu overlay for now, as that's where the existing app has space. You can adjust its placement as needed.*
+### Step 6: Update Media Service
 
-### Step 6: Update Media Service (Already Done in this Update)
-
-In `services/mediaService.ts`, `generateNarrativeImage` already returns a promise. This step ensures its signature is compatible with `mediaController`.
+In `src/services/mediaService.ts`, ensure `generateNarrativeImage` returns a promise:
 
 ```ts
 export async function generateNarrativeImage(visualPrompt: any): Promise<string | undefined> {
@@ -143,7 +146,7 @@ export async function generateNarrativeImage(visualPrompt: any): Promise<string 
 
 ### 1\. MultimodalTurn
 
-Every narrative beat is now a `MultimodalTurn` (defined in `types.ts`):
+Every narrative beat is now a `MultimodalTurn`:
 
 ```ts
 {
@@ -175,7 +178,7 @@ Every narrative beat is now a `MultimodalTurn` (defined in `types.ts`):
 
 ### 2\. Timeline as Source of Truth
 
-The `multimodalTimeline` array in `useGameStore` is the canonical record of all narrative beats. UI components subscribe to it:
+The `multimodalTimeline` array is the canonical record of all narrative beats. UI components subscribe to it:
 
 ```ts
 const { multimodalTimeline, currentTurnId } = useGameStore();
@@ -185,19 +188,19 @@ const currentTurn = multimodalTimeline.find(t => t.id === currentTurnId);
 ### 3\. Media Lifecycle
 
 ```
-Turn Created (by turnService.handleAction)
+Turn Created
     ↓
-registerTurn() (in gameStore via multimodalSlice) → adds to timeline with 'idle' status
+registerTurn() → adds to timeline with 'idle' status
     ↓
-enqueueTurnForMedia() (by mediaController) → adds to generation queue
+enqueueTurnForMedia() → adds to generation queue
     ↓
-processMediaQueue() (in mediaController) → starts generation
+processMediaQueue() → starts generation
     ↓
-markImagePending() / markAudioPending() (in gameStore via multimodalSlice)
+markImagePending() / markAudioPending()
     ↓
-[Generation happens via mediaService]
+[Generation happens]
     ↓
-markImageReady() / markAudioReady() (in gameStore via multimodalSlice)
+markImageReady() / markAudioReady()
     ↓
 UI automatically updates (reactive)
 ```
@@ -225,7 +228,7 @@ pauseAudio();
 ### Playing a Turn with Full Media
 
 ```ts
-import { useGameStore } from './state/gameStore'; // Updated import
+import { useGameStore } from './state/gameStore';
 
 function MyComponent() {
   const { currentTurnId, playTurn, getTurnById } = useGameStore();
@@ -274,7 +277,7 @@ console.log(coherence);
 ### Regenerating Failed Media
 
 ```ts
-import { regenerateMediaForTurn } from './state/mediaController'; // Updated import
+import { regenerateMediaForTurn } from './state/mediaController';
 
 // Retry failed media generation
 await regenerateMediaForTurn(turnId);
@@ -283,7 +286,7 @@ await regenerateMediaForTurn(turnId);
 ### Preloading Upcoming Turns
 
 ```ts
-import { preloadUpcomingMedia } from './state/mediaController'; // Updated import
+import { preloadUpcomingMedia } from './state/mediaController';
 
 // Preload next 2 turns
 await preloadUpcomingMedia(currentTurnId, 2);
@@ -293,7 +296,7 @@ await preloadUpcomingMedia(currentTurnId, 2);
 
 ## Configuration
 
-All media behavior is controlled via `config/behaviorTuning.ts`:
+All media behavior is controlled via `src/config/behaviorTuning.ts`:
 
 ```ts
 export const MEDIA_THRESHOLDS = {
@@ -314,27 +317,33 @@ export const DEV_CONFIG = {
 
 ## Dev Tools
 
-### Press `` ` `` to Open Dev Console
+### Press `~` to Open Dev Console
 
 The multimodal tab shows:
 
-*   **Timeline Stats**: total turns, completion rate, failures
+* **Timeline Stats**: total turns, completion rate, failures
 
-*   **Audio Playback State**: current turn, time, volume, rate
+* **Audio Playback State**: current turn, time, volume, rate
 
-*   **Media Queue**: pending, in-progress, failed generations
+* **Media Queue**: pending, in-progress, failed generations
 
-*   **Timeline Table**: all turns with status indicators
-    *   Click any turn to jump to it
-    *   Click "Retry" on failed turns to regenerate
+* **Timeline Table**: all turns with status indicators
 
-### Keyboard Shortcuts (Now managed in `DevOverlay.tsx`)
+  * Click any turn to jump to it
 
-*   `` ` `` - Toggle dev console
-*   `Ctrl+S` - Save snapshot (includes multimodal timeline)
-*   `Ctrl+L` - Load snapshot
-*   `Ctrl+R` - Reset game
-*   `1-9` - Quick choice selection
+  * Click "Retry" on failed turns to regenerate
+
+### Keyboard Shortcuts
+
+* `~` - Toggle dev console
+
+* `Ctrl+S` - Save snapshot (includes multimodal timeline)
+
+* `Ctrl+L` - Load snapshot
+
+* `1-9` - Quick choice selection
+
+* `←/→` - Navigate timeline (when MediaPanel focused)
 
 ---
 
@@ -354,9 +363,9 @@ if (!audioPlayback.autoAdvance) {
 ### Timeline Replay
 
 ```ts
-import { turnService } from './state/turnService'; // Updated import
+import { turnService } from './state/turnService';
 
-// Replay entire timeline with auto-advance (restarts the game)
+// Replay entire timeline with auto-advance
 await turnService.replayTimeline(true);
 ```
 
@@ -375,10 +384,10 @@ loadSnapshot();
 ### Batch Media Regeneration
 
 ```ts
-import { batchRegenerateMedia } from './state/mediaController'; // Updated import
+import { batchRegenerateMedia } from './state/mediaController';
 
 // Regenerate media for multiple turns
-const failedTurns = useGameStore.getState().multimodalTimeline
+const failedTurns = multimodalTimeline
   .filter(t => t.imageStatus === 'error')
   .map(t => t.id);
 
@@ -429,50 +438,73 @@ Images/videos are only loaded when visible:
 
 ### Media Not Generating
 
-1.  Check `DEV_CONFIG.skipMediaGeneration` in `config/behaviorTuning.ts` is `false`
-2.  Check `MEDIA_THRESHOLDS.enableImages` / `enableAudio` / `enableVideo` in `config/behaviorTuning.ts` are `true` as desired.
-3.  Open dev console (`` ` ``) → Multimodal tab → check queue status (Pending, In Progress, Failed).
-4.  Look for errors in browser console.
+1. Check `DEV_CONFIG.skipMediaGeneration` is `false`
+
+2. Check `MEDIA_THRESHOLDS.enableImages` / `enableAudio` are `true`
+
+3. Open dev console (`~`) → Multimodal tab → check queue status
+
+4. Look for errors in browser console
 
 ### Audio Not Playing
 
-1.  Check `turn.audioStatus === 'ready'` in the Dev Overlay.
-2.  Check browser autoplay policy (user interaction required - clicking "Play" or interacting with the page should enable it).
-3.  Verify `audioUrl` is valid base64 in the dev overlay (though it's handled internally).
-4.  Check volume is not 0 in the Media Panel.
+1. Check `turn.audioStatus === 'ready'`
+
+2. Check browser autoplay policy (user interaction required)
+
+3. Verify `audioUrl` is valid
+
+4. Check volume is not 0
 
 ### Timeline Out of Sync
 
-1.  Open dev console (`` ` ``) → Multimodal tab.
-2.  Check coherence percentage for each turn.
-3.  Click "Retry" on failed turns.
-4.  Verify `currentTurnId` in the Dev Overlay matches expected turn.
+1. Open dev console → Multimodal tab
+
+2. Check coherence percentage for each turn
+
+3. Click "Retry" on failed turns
+
+4. Verify `currentTurnId` matches expected turn
 
 ### Images Not Displaying
 
-1.  Check `turn.imageStatus === 'ready'` in the Dev Overlay.
-2.  Verify `imageData` is valid base64 or URL in the dev overlay.
-3.  Check browser console for CORS errors (unlikely with base64).
-4.  Try regenerating: `regenerateMediaForTurn(turnId)`.
+1. Check `turn.imageStatus === 'ready'`
+
+2. Verify `imageData` is valid base64 or URL
+
+3. Check browser console for CORS errors
+
+4. Try regenerating: `regenerateMediaForTurn(turnId)`
 
 ---
 
 ## Migration Checklist
 
-*   \[X] Install Zustand (`npm install zustand`)
-*   \[X] Copy all 3 new files (`state/multimodalSlice.ts`, `state/mediaController.ts`, `components/MediaPanel.tsx`)
-*   \[X] Replace/Update `state/gameStore.ts` with the new integrated version.
-*   \[X] Replace/Update `state/turnService.ts` with the new integrated version.
-*   \[X] Replace/Update `components/DevOverlay.tsx` with the new version including the multimodal tab.
-*   \[X] Update `config/behaviorTuning.ts` with `MEDIA_THRESHOLDS` and `DEV_CONFIG.skipMediaGeneration`.
-*   \[X] Update all imports in your remaining files (e.g., `App.tsx`, `components/NarrativeLog.tsx`) to point to the new main `gameStore` and `turnService` files (remove `.integrated` suffix if used in previous conceptual steps).
-*   \[X] Add `<MediaPanel />` to your `App.tsx` layout.
-*   \[ ] Test basic turn progression.
-*   \[ ] Test media generation (images, audio, conditional video).
-*   \[ ] Test audio playback and controls.
-*   \[ ] Test timeline navigation.
-*   \[ ] Test save/load snapshots.
-*   \[ ] Configure `MEDIA_THRESHOLDS` for your needs in `config/behaviorTuning.ts`.
+* [ ] Install Zustand
+
+* [ ] Copy all 7 new files
+
+* [ ] Replace `gameStore.ts` with `gameStore.ts` (new version)
+
+* [ ] Replace `turnService.ts` with `turnService.ts` (new version)
+
+* [ ] Replace `DevOverlay.tsx` with `DevOverlay.tsx` (new version)
+
+* [ ] Update all imports
+
+* [ ] Add `MediaPanel` to App layout
+
+* [ ] Test basic turn progression
+
+* [ ] Test media generation
+
+* [ ] Test audio playback
+
+* [ ] Test timeline navigation
+
+* [ ] Test save/load snapshots
+
+* [ ] Configure `MEDIA_THRESHOLDS` for your needs
 
 ---
 
@@ -480,12 +512,17 @@ Images/videos are only loaded when visible:
 
 Once integrated, you can:
 
-1.  **Enhance TTS**: Replace mock audio with real TTS service if `mediaService.generateSpeech` is a placeholder.
-2.  **Add Video**: Fully integrate Veo or other video generation if `animateImageWithVeo` is a placeholder.
-3.  **Visual Effects**: Sync `DistortionLayer` with audio playback (e.g., visualizers reacting to sound).
-4.  **Haptics**: Trigger vibration on audio beats.
-5.  **Accessibility**: Add captions synced to audio timestamps.
-6.  **Analytics**: Track coherence metrics over sessions.
+1. **Enhance TTS**: Replace mock audio with real TTS service
+
+2. **Add Video**: Integrate Veo or other video generation
+
+3. **Visual Effects**: Sync `DistortionLayer` with audio playback
+
+4. **Haptics**: Trigger vibration on audio beats
+
+5. **Accessibility**: Add captions synced to audio timestamps
+
+6. **Analytics**: Track coherence metrics over sessions
 
 ---
 
