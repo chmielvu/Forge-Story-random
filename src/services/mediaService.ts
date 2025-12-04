@@ -6,27 +6,48 @@ import { BEHAVIOR_CONFIG } from "../config/behaviorTuning"; // Import behavior c
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// --- VISUAL DNA MANDATES ---
+// --- I. THE ZERO-DRIFT AESTHETIC KERNEL ---
+const ZERO_DRIFT_HEADER = "((MASTER STYLE LOCK)): hyper-detailed 8K oil painting texture, soft digital brushwork, expressive linework, ((Milo Manara sensual elegance, Bruce Timm angular minimalism fusion)), dramatic Rembrandt Caravaggio lighting, shallow depth of field, clean sharp focus. (Technical Lock: intimate 85mm portrait lens, rim lighting on sweat-glistened skin). NO TEXT/WATERMARKS.";
+
+const AESTHETIC_TOKENS = {
+  // Core Face & Expression
+  FelineEyes: "Heavy-lidded, almond-shaped feline eyes with thick lashes and a permanent glint of amused cruelty.",
+  CruelHalfSmile: "One corner of the mouth lifted in a subtle, knowing half-smile that never reaches the eyes.",
+  TeasingCruelty: "Expression that promises pleasure and pain, eyebrow slightly arched, gaze locked on vulnerability.",
+  LiquidStrands: "Hair rendered as individual glossy strands that catch and refract light, escaping to caress skin.",
+
+  // Body Language & Poses
+  LanguidDominance: "Weight shifted to one hip, shoulders relaxed, head tilted slightly down while eyes look up.",
+  KneelingGoddess: "Woman kneeling over a victim yet looking down from above, back arched to accentuate curves.",
+  VoyeurSilhouette: "Figure half in shadow, only the curve of waist, breast, and thigh outlined by rim-light.",
+  
+  // Details
+  BoundWrists: "Light silk or leather restraints on wrists, symbolizing non-consensual control without pain.",
+  FlushedSkin: "Flushed, sweat-glistened skin with subtle bruises, conveying unwilling arousal.",
+  TremblingHands: "Hands trembling slightly, fingers clenched in fear-tinged desire.",
+  ClingingVelvet: "Velvet that clings to every curve like a second skin, folds drawn with liquid linework.",
+  RimLitCleavage: "Strong rim-light traces the edge of plunging neckline and shadowed valley between breasts.",
+  VelvetShadowPool: "Deep velvet shadows deliberately pooled in cleavage, under jawlines, and between parted thighs.",
+  ImpossibleElegance: "Unnaturally long, aristocratic fingers with perfect nails.",
+  LethalCaress: "Hand performing a gesture that is simultaneously tender and threatening.",
+  SlitToHip: "Skirt slit to the hip bone, revealing the entire length of a sculpted leg and lace garter.",
+  WetSilkEffect: "Fabric rendered semi-transparent with sweat or steam, clinging to skin."
+};
 
 const VISUAL_MANDATE = {
-  style: "grounded dark erotic academia + baroque brutalism + vampire noir + intimate psychological horror + rembrandt caravaggio lighting",
+  style: "grounded dark erotic academia + baroque brutalism + vampire noir + intimate psychological tension + rembrandt caravaggio lighting + painterly anime-fusion gothic overlays. masterpiece, oil painting texture with soft digital brushwork, hyper-detailed fabrics and hair textures.",
   technical: {
     camera: "intimate 50mm or 85mm close-up, shallow depth of field",
-    // CHANGE: Added "rim lighting" and "volumetric" to separate subject from background
-    lighting: "cinematic rembrandt lighting, volumetric gaslight with cool blue rim-light, deep shadows but detailed midtones, atmospheric fog"
+    lighting: "single flickering gaslight or cold surgical lamp, deep shadows pooling in cleavage and skirt slits, volumetric fog, rim lighting on sweat/skin, subtle bruises visible."
   },
-  mood: "predatory intimacy, clinical amusement, suffocating dread, weaponized sexuality",
+  mood: "predatory intimacy, clinical amusement, suffocating desire, weaponized sexuality, voyeuristic, non-consensual fear, unwilling arousal, languid dominance.",
   quality: "restrained masterpiece oil painting, no fantasy elements, high detail on skin texture and fabric strain",
   negative_prompt: [
     "bright colors", "cheerful", "modern architecture", "soft focus", "natural daylight", 
-    "explicit nudity", "graphic violence", "anime", "cartoon", "3d render", "low res",
-    // ADDED: Negative prompts for better visibility
-    "underexposed", 
-    "crushed blacks", 
-    "illegible", 
-    "too dark", 
-    "flat lighting",
-    "muddy textures"
+    "anime exaggeration", "cartoon", "3d render", "low res", "flat lighting", 
+    "muddy textures", "fantasy armor", "capes", "lightning", "gore", "blood", 
+    "screaming", "supernatural elements", "monsters", "ghosts", "ugly", 
+    "deformed", "extra limbs", "blurry", "overexposed", "watermark", "text"
   ]
 };
 
@@ -59,6 +80,7 @@ export function buildVisualPrompt(
   
   let subject: any = {};
   let moodModifiers: string[] = ["clinical-chiaroscuro"];
+  let aestheticInjects: string[] = [];
   
   // Clone strict mandates to avoid mutation
   const promptTechnical = { ...VISUAL_MANDATE.technical };
@@ -79,8 +101,10 @@ export function buildVisualPrompt(
 
     if (target === CharacterId.PLAYER) {
       moodModifiers.push("vulnerable", "exposed", "sweat-slicked", "kneeling", "submissive");
+      aestheticInjects.push(AESTHETIC_TOKENS.BoundWrists, AESTHETIC_TOKENS.FlushedSkin);
     } else {
       moodModifiers.push("dominant", "predatory", "elegant", "looming", "control");
+      aestheticInjects.push(AESTHETIC_TOKENS.FelineEyes, AESTHETIC_TOKENS.ImpossibleElegance, AESTHETIC_TOKENS.LanguidDominance);
     }
 
   } else {
@@ -96,17 +120,22 @@ export function buildVisualPrompt(
     };
 
     moodModifiers.push(map.mood || "febrile");
+    aestheticInjects.push(AESTHETIC_TOKENS.CruelHalfSmile);
     
     // Inject Trait-Based Visuals
     const { cruelty, charisma, submission_to_authority, ambition, cunning } = target.traitVector;
 
     // Charisma
-    if (charisma > 0.8) moodModifiers.push("mesmeric-gaze", "magnetic-presence", "glowing-skin");
-    else if (charisma < 0.3) moodModifiers.push("unnoticed", "plain", "blending-in");
+    if (charisma > 0.8) {
+        moodModifiers.push("mesmeric-gaze", "magnetic-presence");
+        aestheticInjects.push(AESTHETIC_TOKENS.LiquidStrands);
+    }
 
     // Cruelty
-    if (cruelty > 0.7) moodModifiers.push("cold-sneer", "predatory-stance", "holding-instrument", "blood-flecked");
-    else if (cruelty < 0.3) moodModifiers.push("hesitant", "soft-touch", "worried-brow", "gentle-hands");
+    if (cruelty > 0.7) {
+        moodModifiers.push("cold-sneer", "predatory-stance");
+        aestheticInjects.push(AESTHETIC_TOKENS.TeasingCruelty);
+    }
 
     // Submission
     if (submission_to_authority > 0.8) moodModifiers.push("head-bowed", "hands-clasped", "eyes-downcast", "rigid-obedience");
@@ -120,7 +149,10 @@ export function buildVisualPrompt(
 
     // Drive/Weakness Hints (Subtle)
     if (target.drive.includes("Sabotage") || target.drive.includes("Undermine")) moodModifiers.push("hiding-something", "duplicitous-shadows");
-    if (target.secretWeakness.includes("Horrified") || target.secretWeakness.includes("Empathy")) moodModifiers.push("tear-stained-cheek", "trembling-hands");
+    if (target.secretWeakness.includes("Horrified") || target.secretWeakness.includes("Empathy")) {
+        moodModifiers.push("tear-stained-cheek", "trembling-hands");
+        aestheticInjects.push(AESTHETIC_TOKENS.TremblingHands);
+    }
   }
 
   // 2. RESOLVE CONTEXT (Enhanced)
@@ -128,12 +160,17 @@ export function buildVisualPrompt(
   const lowerContext = sceneContext.toLowerCase();
   
   if (lowerContext.includes("dock") || lowerContext.includes("arrival")) environment = "volcanic rock dock, stormy sky, weeping stone, ocean spray, iron gates, monolithic architecture";
-  // CHANGE: Added emissive elements to office/selene
-  else if (lowerContext.includes("office") || lowerContext.includes("study") || lowerContext.includes("selene")) environment = "mahogany desk, glowing fireplace casting warm light, velvet curtains, wine goblet catching the light, oppressive luxury, bookshelves, fireplace, persian rugs";
+  else if (lowerContext.includes("office") || lowerContext.includes("study") || lowerContext.includes("selene")) {
+      environment = "mahogany desk, glowing fireplace casting warm light, velvet curtains, wine goblet catching the light, oppressive luxury, bookshelves, fireplace, persian rugs";
+      aestheticInjects.push(AESTHETIC_TOKENS.VelvetShadowPool);
+  }
   else if (lowerContext.includes("infirmary") || lowerContext.includes("clinic") || lowerContext.includes("lab") || lowerContext.includes("lysandra")) environment = "tiled walls, surgical tools, sterile light, medical cabinet, anatomical charts, stainless steel, cold atmosphere";
   else if (lowerContext.includes("cell") || lowerContext.includes("cage") || lowerContext.includes("dungeon")) environment = "rusted iron bars, damp straw, stone walls, claustrophobic, chains, dripping water, oubliette";
   else if (lowerContext.includes("lecture") || lowerContext.includes("hall") || lowerContext.includes("theater") || lowerContext.includes("rotunda")) environment = "tiered lecture hall, chalkboard, imposing podium, dust motes, spotlights, panopticon layout";
-  else if (lowerContext.includes("bath") || lowerContext.includes("pool") || lowerContext.includes("water")) environment = "tiled bathhouse, steam, stagnant water, echoing, cracked tiles, roman columns";
+  else if (lowerContext.includes("bath") || lowerContext.includes("pool") || lowerContext.includes("water")) {
+      environment = "tiled bathhouse, steam, stagnant water, echoing, cracked tiles, roman columns";
+      aestheticInjects.push(AESTHETIC_TOKENS.WetSilkEffect);
+  }
   else if (lowerContext.includes("garden") || lowerContext.includes("greenhouse") || lowerContext.includes("apothecary")) environment = "overgrown nightshade, glass bottles, dried herbs, humid, earthy smell, poisonous flowers";
   else if (lowerContext.includes("dorm") || lowerContext.includes("quarters")) environment = "spartan room, iron bed frame, moonlight through window, shadows, personal artifacts";
   else if (lowerContext.includes("corridor") || lowerContext.includes("hallway")) environment = "endless stone corridor, flickering torches, arched ceiling, weeping walls, distant footsteps";
@@ -147,8 +184,6 @@ export function buildVisualPrompt(
     // Shame -> Lighting exposure
     if (ledger.shamePainAbyssLevel > 50) promptTechnical.lighting = "high-contrast, harsh shadows";
     if (ledger.shamePainAbyssLevel > 80) {
-        // CHANGE: "surrounding pitch black" -> "surrounding oppressive shadows"
-        // CHANGE: Added "specular highlights" to ensure skin/sweat reflects light even in dark
         promptTechnical.lighting = "harsh clinical spotlight from above, surrounding oppressive shadows, high contrast specular highlights on skin, visible sweat texture";
         moodModifiers.push("humiliated-posture", "tearing-up", "flushed-skin", "avoiding-eye-contact", "covering-self");
     }
@@ -157,7 +192,10 @@ export function buildVisualPrompt(
     if (ledger.complianceScore > 70) moodModifiers.push("broken-posture", "pliant", "doll-like", "slack-jawed", "empty-eyes");
 
     // Arousal -> Physiological cues
-    if (ledger.arousalLevel > 60) moodModifiers.push("heavy-breathing", "dilated-pupils", "fabric-tension", "flushed-chest", "sweat-beads", "biting-lip");
+    if (ledger.arousalLevel > 60) {
+        moodModifiers.push("heavy-breathing", "dilated-pupils", "fabric-tension", "flushed-chest", "sweat-beads", "biting-lip");
+        aestheticInjects.push(AESTHETIC_TOKENS.RimLitCleavage, AESTHETIC_TOKENS.WetSilkEffect);
+    }
     
     // Hope -> Lighting color
     if (ledger.hopeLevel < 20) promptTechnical.lighting += ", cold blue tones, desaturated, hopeless";
@@ -169,6 +207,7 @@ export function buildVisualPrompt(
     ...VISUAL_MANDATE,
     technical: promptTechnical,
     subject: subject,
+    aesthetic_injects: aestheticInjects.join(" | "), // Inject the aesthetic tokens
     specific_mood: moodModifiers.filter(Boolean).join(", "),
     scene_context: sceneContext.substring(0, 300),
     environment: environment, 
@@ -190,6 +229,7 @@ export const generateNarrativeImage = async (visualPromptRaw: string): Promise<s
   // Enforcing the JSON Structure Mandate
   const structuredPrompt = {
     ...VISUAL_MANDATE,
+    aesthetic_lock: ZERO_DRIFT_HEADER, // Pass the lock to the JSON logic
     scene_description: visualPromptRaw,
     environment_directives: "raw concrete chamber, leather books, surgical tools, faint wine goblet, damp stone walls",
     character_directives: "Female characters: White shirts half-unbuttoned revealing lace bra/cleavage, high slits, sheer stockings. Male characters: Disheveled, sweating, open shirts. Predatory expressions.",
@@ -198,13 +238,15 @@ export const generateNarrativeImage = async (visualPromptRaw: string): Promise<s
 
   // Flattening for the model to interpret as a strict directive
   const finalPrompt = `
+    ${ZERO_DRIFT_HEADER}
+    
     GENERATE AN IMAGE BASED ON THIS STRICT JSON CONFIGURATION:
     \`\`\`json
     ${JSON.stringify(structuredPrompt, null, 2)}
     \`\`\`
     
     CRITICAL VISUAL RULES:
-    1. ART STYLE: Baroque Brutalism + Vampire Noir. Oil painting aesthetic.
+    1. ART STYLE: Baroque Brutalism + Vampire Noir + Bruce Timm/Manara Fusion. Oil painting aesthetic.
     2. LIGHTING: Deep Chiaroscuro. 
     3. NO FANTASY ELEMENTS. Grounded, gritty, erotic realism.
   `;
@@ -284,6 +326,7 @@ export const animateImageWithVeo = async (
 
   try {
     const motionPrompt = `
+      ${ZERO_DRIFT_HEADER}
       Cinematic slow motion, psychological horror, atmospheric.
       Scene: ${visualPrompt}
       Directives: Micro-movements of breathing and fabric. Flickering light. Dust motes. No morphing.
@@ -391,7 +434,7 @@ export const distortImage = async (imageB64: string, instruction: string): Promi
                 mimeType: 'image/jpeg',
               },
             },
-            { text: instruction },
+            { text: `${ZERO_DRIFT_HEADER} ${instruction}` },
           ],
         },
         config: {
