@@ -1,6 +1,7 @@
 
 import { create } from 'zustand';
-import { GameState, LogEntry, DirectorOutput, YandereLedger, CombinedGameStoreState } from '../types';
+import { shallow } from 'zustand/shallow'; // Import shallow for selectors
+import { GameState, LogEntry, DirectorOutput, CombinedGameStoreState } from '../types';
 import { INITIAL_LEDGER, INITIAL_NODES, INITIAL_LINKS } from '../constants';
 import { updateLedgerHelper, reconcileGraphHelper } from './stateHelpers';
 import { createMultimodalSlice } from './multimodalSlice';
@@ -160,3 +161,14 @@ export const useGameStore = create<CombinedGameStoreState>((set, get, api) => ({
     }
   },
 }));
+
+// --- Zustand Selectors for optimized re-renders ---
+export const useShallowGameState = () => useGameStore(
+  state => state.gameState,
+  shallow
+);
+
+export const useMultimodalTimeline = () => useGameStore(
+  state => state.multimodalTimeline,
+  (a, b) => a.length === b.length && a[0]?.id === b[0]?.id // Simple shallow comparison for timeline changes
+);

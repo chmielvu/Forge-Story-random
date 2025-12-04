@@ -43,7 +43,7 @@ YOU MUST:
    - \`confidence\` (0.0-1.0) — how strongly agent commits to this action.
 
 3. If the \`action\` involves another character, include \`targetId\` (prefectId, subjectId, or facultyId).
-4. Use the PrefectDNA archetype templates to bias action selection (e.g., Siren => favors seduce/probe; Brat Princess => uses charm/entitlement; Psychologist => research/probe/plot; Contender => punish/plot/sabotage).
+4. Use the PrefectDNA archetype templates to bias action selection (eg., Siren => favors seduce/probe; Brat Princess => uses charm/entitlement; Psychologist => research/probe/plot; Contender => punish/plot/sabotage).
 5. Keep the publicUtterance plausible for the Prefect's vocal profile (see archetype vocal hints).
 6. Keep output JSON strictly valid, minimal whitespace, and in UTF-8.
 
@@ -67,6 +67,7 @@ export class PrefectAgent {
   private history: ConversationHistory;
   private privateState: PrefectPrivateState;
   private modelName: string = 'gemini-2.5-flash';
+  private recentDecisions: PrefectDecision[] = [];
 
   constructor(dna: PrefectDNA) {
     this.dna = dna;
@@ -82,6 +83,9 @@ export class PrefectAgent {
 
   async think(scene: FilteredSceneContext, ledger: YandereLedger): Promise<PrefectDecision> {
     
+    // Check for repetitive behavior
+    const isRepetitive = this.checkRepetition();
+
     // Construct the input object, strictly utilizing the FilteredSceneContext
     // This ensures no global secrets or other agent internals are leaked to this agent
     const userInput = {
@@ -104,15 +108,20 @@ export class PrefectAgent {
         // Agents only see bonds they are part of, or high-level metrics
         relevantBonds: ledger.traumaBonds 
       },
-      privateState: this.privateState
+      privateState: this.privateState,
+      antiRepetitionDirective: isRepetitive ? 
+        'You have been repeating similar actions. Vary your approach and try a different tactic.' : 
+        undefined
     };
 
     try {
       const response = await ai.models.generateContent({
         model: this.modelName,
         config: {
-          systemInstruction: FLASH_SYSTEM_PROMPT,
-          temperature: 0.9, 
+          systemInstruction: isRepetitive ? 
+            `${FLASH_SYSTEM_PROMPT}\n\nIMPORTANT: Avoid repeating your last ${this.recentDecisions.length} actions. Be creative and strategic.` :
+            FLASH_SYSTEM_PROMPT,
+          temperature: isRepetitive ? 1.1 : 0.9, 
           maxOutputTokens: 600,
           responseMimeType: 'application/json',
           responseSchema: {
@@ -160,9 +169,8 @@ export class PrefectAgent {
         this.applyStateDelta(decision.stateDelta);
       }
 
-      // Note: favorScoreDelta is applied by the orchestrator for persistence.
-      // We don't apply it directly here because the PrefectAgent instance
-      // itself is stateful in the orchestrator.
+      // Record decision for repetition tracking
+      this.recordDecision(decision);
 
       return decision;
 
@@ -191,8 +199,27 @@ export class PrefectAgent {
     this.dna.favorScore = Math.max(0, Math.min(100, this.dna.favorScore + delta));
   }
 
+  private checkRepetition(): boolean {
+    if (this.recentDecisions.length < 3) return false;
+    
+    const last3Actions = this.recentDecisions.slice(-3).map(d => d.action);
+    
+    // Check if last 3 actions are the same
+    return last3Actions.every(action => action === last3Actions[0]);
+  }
+
+  private recordDecision(decision: PrefectDecision): void {
+    this.recentDecisions.push(decision);
+    
+    // Keep only last 5
+    if (this.recentDecisions.length > 5) {
+      this.recentDecisions = this.recentDecisions.slice(-5);
+    }
+  }
+
   reset(): void {
     this.history = [];
+    this.recentDecisions = [];
     // Reset private state
     this.privateState = {
       hiddenGoals: [],

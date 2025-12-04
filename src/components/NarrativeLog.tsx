@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { LogEntry, YandereLedger } from '../types';
 import { Brain, Volume2, Activity, Square, Play, Pause } from 'lucide-react';
@@ -191,10 +192,12 @@ const NarrativeLog: React.FC<Props> = ({ logs, thinking, choices, onChoice, ledg
   const visibleLogs = useMemo(() => {
       const filtered = logs.filter(l => ['narrative', 'system', 'thought'].includes(l.type));
       return filtered.slice(-8); // Keep last 8 entries
-  }, [logs]);
+  }, [logs.length]); // Optimized dependency
 
-  const lastNarrative = [...logs].reverse().find(l => l.type === 'narrative');
-  const speaker = useMemo(() => getCharacterDetails(lastNarrative?.content || ''), [lastNarrative]);
+  const speaker = useMemo(() => {
+    const lastNarrative = [...logs].reverse().find(l => l.type === 'narrative');
+    return getCharacterDetails(lastNarrative?.content || '');
+  }, [logs.length]); // Optimized dependency
 
   // Trauma effects
   const isHighTrauma = ledger.traumaLevel > 80;

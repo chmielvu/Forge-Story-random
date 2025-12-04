@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useGameStore } from '../state/gameStore';
 import { Play, Pause, FastForward, Rewind, Volume2, VolumeX, Maximize, Loader2, RefreshCw, ChevronLeft, ChevronRight, Speaker } from 'lucide-react';
@@ -76,7 +77,7 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
 
   // Auto-play the currently selected turn if auto-advance is on and audio is ready
   useEffect(() => {
-    if (currentTurn && currentTurn.audioStatus === MediaStatus.READY && audioPlayback.autoAdvance && audioPlayback.hasUserInteraction) {
+    if (currentTurn && currentTurn.audioStatus === MediaStatus.ready && audioPlayback.autoAdvance && audioPlayback.hasUserInteraction) {
       if (audioPlayback.currentPlayingTurnId !== currentTurn.id) {
         // Only play if a different turn's audio is not already active
         playTurn(currentTurn.id);
@@ -108,7 +109,7 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
     setHasUserInteraction(); // Crucial for browser autoplay policies
     if (audioPlayback.isPlaying && audioPlayback.currentPlayingTurnId === currentTurn?.id) {
       pauseAudio();
-    } else if (currentTurn?.audioStatus === MediaStatus.READY && currentTurn.id) {
+    } else if (currentTurn?.audioStatus === MediaStatus.ready && currentTurn.id) {
       playTurn(currentTurn.id);
     } else if (!currentTurn) {
         console.warn("No current turn selected to play.");
@@ -147,7 +148,7 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
     <div className="relative w-full h-full bg-black flex flex-col items-center justify-center text-forge-text font-serif">
       {/* Media Display Area */}
       <div className="relative flex-1 w-full flex items-center justify-center bg-stone-950 overflow-hidden">
-        {(videoStatus === MediaStatus.PENDING || imageStatus === MediaStatus.PENDING || audioStatus === MediaStatus.PENDING) && (
+        {(videoStatus === MediaStatus.pending || imageStatus === MediaStatus.pending || audioStatus === MediaStatus.pending) && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 text-forge-gold animate-pulse">
             <Loader2 size={32} className="animate-spin mb-4" />
             <span className="font-mono text-xs uppercase tracking-widest">GENERATING_MEDIA...</span>
@@ -155,7 +156,7 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
           </div>
         )}
 
-        {videoUrl && videoStatus === MediaStatus.READY ? (
+        {videoUrl && videoStatus === MediaStatus.ready ? (
           <video
             src={videoUrl}
             autoPlay
@@ -169,7 +170,7 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
                 // regenerateMediaForTurn(currentTurn.id, 'video'); // Auto-retry video
             }}
           />
-        ) : imageData && imageStatus === MediaStatus.READY ? (
+        ) : imageData && imageStatus === MediaStatus.ready ? (
           <img
             src={imageData.startsWith('data:') ? imageData : `data:image/jpeg;base64,${imageData}`}
             alt={`Scene for Turn ${currentTurn.turnIndex}`}
@@ -186,12 +187,12 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
           </div>
         )}
 
-        {(imageStatus === MediaStatus.ERROR || audioStatus === MediaStatus.ERROR || videoStatus === MediaStatus.ERROR) && (
+        {(imageStatus === MediaStatus.error || audioStatus === MediaStatus.error || videoStatus === MediaStatus.error) && (
             <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-red-950/80 text-white font-mono text-xs uppercase p-4">
                 <span className="text-red-400 mb-2">MEDIA_GENERATION_FAILED</span>
-                {imageStatus === MediaStatus.ERROR && <p>Image: {currentTurn.imageError || 'Error'}</p>}
-                {audioStatus === MediaStatus.ERROR && <p>Audio: {currentTurn.audioError || 'Error'}</p>}
-                {videoStatus === MediaStatus.ERROR && <p>Video: {currentTurn.videoError || 'Error'}</p>}
+                {imageStatus === MediaStatus.error && <p>Image: {currentTurn.imageError || 'Error'}</p>}
+                {audioStatus === MediaStatus.error && <p>Audio: {currentTurn.audioError || 'Error'}</p>}
+                {videoStatus === MediaStatus.error && <p>Video: {currentTurn.videoError || 'Error'}</p>}
                 <button 
                     onClick={() => handleRegenerateMedia()}
                     className="mt-4 px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded-sm text-xs flex items-center gap-2"
@@ -216,7 +217,7 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
           <button
             onClick={handlePlayPause}
             className="flex items-center justify-center w-10 h-10 rounded-full bg-forge-gold text-black shadow-lg hover:bg-yellow-400 transition-colors"
-            disabled={audioStatus !== MediaStatus.READY && !audioPlayback.isPlaying}
+            disabled={audioStatus !== MediaStatus.ready && !audioPlayback.isPlaying}
           >
             {audioPlayback.isPlaying && audioPlayback.currentPlayingTurnId === currentTurn.id ? <Pause size={20} /> : <Play size={20} />}
           </button>

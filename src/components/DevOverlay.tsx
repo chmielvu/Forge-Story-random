@@ -17,23 +17,23 @@ const MediaStatusIndicator: React.FC<MediaStatusIndicatorProps> = ({ status, typ
   let icon = null;
 
   switch (status) {
-    case MediaStatus.IDLE:
+    case MediaStatus.idle: 
       colorClass = 'text-stone-500';
       icon = <Clock size={10} />;
       break;
-    case MediaStatus.PENDING:
+    case MediaStatus.pending: 
       colorClass = 'text-blue-400 animate-pulse';
       icon = <Loader2 size={10} className="animate-spin" />;
       break;
-    case MediaStatus.IN_PROGRESS:
+    case MediaStatus.inProgress: 
       colorClass = 'text-yellow-400 animate-spin';
       icon = <Loader2 size={10} className="animate-spin" />;
       break;
-    case MediaStatus.READY:
+    case MediaStatus.ready: 
       colorClass = 'text-green-400';
       icon = <Play size={10} />;
       break;
-    case MediaStatus.ERROR:
+    case MediaStatus.error: 
       colorClass = 'text-red-500';
       icon = <X size={10} />;
       break;
@@ -300,7 +300,7 @@ const DevOverlay: React.FC = () => {
                               </button>
                               <button 
                                 onClick={() => playTurn(turn.id)} 
-                                disabled={turn.audioStatus !== MediaStatus.READY}
+                                disabled={turn.audioStatus !== MediaStatus.ready} 
                                 className="px-2 py-1 bg-blue-700/30 hover:bg-blue-700/50 rounded-sm disabled:opacity-50"
                                 title="Play Audio"
                               >

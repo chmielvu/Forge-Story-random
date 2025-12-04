@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { GraphNode, GraphLink, CharacterId, YandereLedger } from '../types';
@@ -29,8 +30,13 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger, executedCode }) =
       .attr("viewBox", [0, 0, width, height]);
 
     // CRITICAL FIX: Deep clone data to prevent D3 from mutating React props/state
-    const simulationNodes = JSON.parse(JSON.stringify(nodes));
-    const simulationLinks = JSON.parse(JSON.stringify(links));
+    const simulationNodes = nodes.map(n => ({...n}));
+    const simulationLinks = links.map(l => ({
+      source: typeof l.source === 'string' ? l.source : (l.source as any).id,
+      target: typeof l.target === 'string' ? l.target : (l.target as any).id,
+      relation: l.relation,
+      weight: l.weight
+    }));
 
     // Simulation setup
     const simulation = d3.forceSimulation(simulationNodes)

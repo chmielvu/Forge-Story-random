@@ -307,13 +307,12 @@ export interface FilteredSceneContext {
 }
 
 // --- MULTIMODAL SYSTEM TYPES ---
-
 export enum MediaStatus {
-  IDLE = 'idle',
-  PENDING = 'pending',
-  IN_PROGRESS = 'inProgress',
-  READY = 'ready',
-  ERROR = 'error',
+  idle = 'idle',
+  pending = 'pending',
+  inProgress = 'inProgress', 
+  ready = 'ready',
+  error = 'error',
 }
 
 export interface MultimodalTurn {
@@ -325,16 +324,16 @@ export interface MultimodalTurn {
   // Media status tracking
   imageStatus: MediaStatus;
   imageData?: string;
-  imageError?: string;
+  imageError?: string; // Added error field
   
   audioStatus: MediaStatus;
   audioUrl?: string; // Base64 audio string
   audioDuration?: number; // In seconds
-  audioError?: string;
+  audioError?: string; // Added error field
   
   videoStatus: MediaStatus;
   videoUrl?: string; // Base64 video string (or blob URL)
-  videoError?: string;
+  videoError?: string; // Added error field
   
   // Metadata for coherence, debug, etc.
   metadata?: {
@@ -349,12 +348,14 @@ export interface MultimodalTurn {
 
 export interface MediaQueueItem {
   turnId: string;
-  type: 'image' | 'audio' | 'video';
-  prompt: string;
+  type: 'image' | 'audio' | 'video'; 
+  prompt: string; // This will now be the fully coherent JSON string for images
   narrativeText?: string; // For audio generation
-  retries?: number; // Made optional
-  addedAt?: number; // Made optional
-  errorMessage?: string; // Added errorMessage
+  target?: PrefectDNA | CharacterId; // Added for buildVisualPrompt context
+  previousTurn?: MultimodalTurn; // Added for buildVisualPrompt context
+  retries?: number; 
+  addedAt?: number; 
+  errorMessage?: string; 
 }
 
 export interface AudioPlaybackState {
@@ -365,6 +366,7 @@ export interface AudioPlaybackState {
   playbackRate: number; // 0.5x, 1x, 1.5x, 2x
   autoAdvance: boolean; // Play next turn automatically
   hasUserInteraction: boolean; // Required for autoplay in browsers
+  currentAudioSource: AudioBufferSourceNode | null; // Added for audio resource management
 }
 
 export interface CoherenceReport {
@@ -377,10 +379,43 @@ export interface CoherenceReport {
   completionPercentage: number; // % of modalities loaded
 }
 
+// --- VISUAL COHERENCE ENGINE TYPES ---
+export interface VisualMemory {
+  lastCharacterAppearances: Map<string, CharacterVisualState>;
+  environmentState: EnvironmentState;
+  timeOfDay: 'dawn' | 'morning' | 'afternoon' | 'evening' | 'night';
+  weatherCondition: string;
+  turnHistory: VisualTurnSnapshot[];
+}
+
+export interface CharacterVisualState {
+  characterId: string;
+  lastSeenTurn: number;
+  clothingState: 'pristine' | 'disheveled' | 'torn' | 'bloodstained';
+  emotionalState: 'composed' | 'agitated' | 'broken' | 'ecstatic' | 'desirous' | 'humiliated' | 'terrified' | 'despairing';
+  injuries: string[];
+  dominancePosture: number; // 0-1
+}
+
+export interface EnvironmentState {
+  location: string;
+  lightingScheme: string;
+  atmosphericEffects: string[];
+  dominantColors: string[];
+}
+
+export interface VisualTurnSnapshot {
+  turnId: string;
+  turnIndex: number;
+  dominantCharacterId: string; // Changed from dominantCharacter (string name) to ID
+  location: string;
+  emotionalTone: string;
+}
+
 // --- ZUSTAND STORE TYPES ---
 
 // Interface for the Multimodal Slice
-export interface MultimodalSlice {
+export interface MultimodalSliceExports {
   multimodalTimeline: MultimodalTurn[];
   currentTurnId: string | null;
   mediaQueue: {
@@ -438,10 +473,10 @@ export interface MultimodalSlice {
 }
 
 // Interface for the Full Game Store
-export interface CombinedGameStoreState extends MultimodalSlice {
+export interface CombinedGameStoreState extends MultimodalSliceExports {
   // Core Game State
   gameState: GameState;
-  logs: LogEntry[]; // Retained for NarrativeLog display, but multimodalTimeline is source of truth for media
+  logs: LogEntry[]; 
   choices: string[];
   
   // UI Flags
