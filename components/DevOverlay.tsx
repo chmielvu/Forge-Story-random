@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../state/gameStore';
-import { X, Activity, Terminal, Database, FileText, Layout, Clock, Play, RefreshCw } from 'lucide-react';
+import { X, Activity, Terminal, Database, FileText, Layout, Clock, Play, RefreshCw, ChevronRight, Loader2 } from 'lucide-react';
 import { BEHAVIOR_CONFIG } from '../config/behaviorTuning';
 import { CoherenceReport, MediaStatus } from '../types';
 import { regenerateMediaForTurn } from '../state/mediaController';
@@ -22,11 +22,11 @@ const MediaStatusIndicator: React.FC<MediaStatusIndicatorProps> = ({ status, typ
       break;
     case 'pending':
       colorClass = 'text-blue-400 animate-pulse';
-      icon = <Loader2 size={10} />;
+      icon = <Loader2 size={10} className="animate-spin" />;
       break;
     case 'inProgress':
       colorClass = 'text-yellow-400 animate-spin';
-      icon = <Loader2 size={10} />;
+      icon = <Loader2 size={10} className="animate-spin" />;
       break;
     case 'ready':
       colorClass = 'text-green-400';

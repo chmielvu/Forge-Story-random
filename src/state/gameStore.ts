@@ -1,47 +1,9 @@
 
 import { create } from 'zustand';
-import { GameState, LogEntry, DirectorOutput, YandereLedger } from '../types';
+import { GameState, LogEntry, DirectorOutput, YandereLedger, CombinedGameStoreState } from '../types';
 import { INITIAL_LEDGER, INITIAL_NODES, INITIAL_LINKS } from '../constants';
 import { updateLedgerHelper, reconcileGraphHelper } from './stateHelpers';
-import { createMultimodalSlice, MultimodalSlice } from './multimodalSlice';
-
-// Define the combined state interface
-interface CombinedGameStoreState extends MultimodalSlice {
-  // Core Game State
-  gameState: GameState;
-  logs: LogEntry[]; // Retained for NarrativeLog display, but multimodalTimeline is source of truth for media
-  choices: string[];
-  
-  // UI Flags
-  isThinking: boolean;
-  isMenuOpen: boolean;
-  isGrimoireOpen: boolean;
-  isDevOverlayOpen: boolean;
-  
-  // Dev / Debug Data
-  executedCode?: string;
-  lastSimulationLog?: string;
-  lastDirectorDebug?: string;
-
-  // Core Game Actions
-  addLog: (log: LogEntry) => void;
-  setLogs: (logs: LogEntry[]) => void;
-  setChoices: (choices: string[]) => void;
-  setThinking: (isThinking: boolean) => void;
-  setMenuOpen: (isOpen: boolean) => void;
-  setGrimoireOpen: (isOpen: boolean) => void;
-  setDevOverlayOpen: (isOpen: boolean) => void;
-  
-  // Complex Updates
-  updateGameState: (updates: Partial<GameState>) => void;
-  applyDirectorUpdates: (response: DirectorOutput) => void;
-  
-  // System
-  resetGame: () => void;
-  saveSnapshot: () => void;
-  loadSnapshot: () => void;
-  updateLogMedia: (logId: string, media: { imageData?: string, audioData?: string, videoData?: string }) => void;
-}
+import { createMultimodalSlice } from './multimodalSlice';
 
 const INITIAL_GAME_STATE: GameState = {
   ledger: INITIAL_LEDGER,

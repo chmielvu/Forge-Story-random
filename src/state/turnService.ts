@@ -2,7 +2,7 @@
 import { LogEntry } from '../types';
 import { generateNextTurn } from '../services/geminiService';
 import { useGameStore } from './gameStore';
-import { enqueueTurnForMedia } from './mediaController';
+import { enqueueTurnForMedia, preloadUpcomingMedia } from './mediaController';
 import { BEHAVIOR_CONFIG } from '../config/behaviorTuning';
 
 export const turnService = {
@@ -105,7 +105,7 @@ export const turnService = {
     enqueueTurnForMedia(newMultimodalTurn);
 
     // Preload upcoming media if needed
-    store.preloadUpcomingMedia(newMultimodalTurn.id, 2); // Preload next 2 turns
+    preloadUpcomingMedia(newMultimodalTurn.id, 2); // Preload next 2 turns
   },
 
   /**
@@ -131,7 +131,7 @@ export const turnService = {
     // Automatically play the first turn (after it's ready)
     const firstTurn = store.multimodalTimeline[0];
     if (firstTurn) {
-      const unsubscribe = store.subscribe(
+      const unsubscribe = useGameStore.subscribe(
         (state) => state.multimodalTimeline.find(t => t.id === firstTurn.id)?.audioStatus,
         (audioStatus) => {
           if (audioStatus === 'ready') {

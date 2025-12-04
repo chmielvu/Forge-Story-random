@@ -1,3 +1,4 @@
+
 import { StateCreator } from 'zustand';
 import {
   MultimodalTurn,
@@ -5,12 +6,12 @@ import {
   MediaQueueItem,
   AudioPlaybackState,
   CoherenceReport,
-  GameState,
   YandereLedger,
-  LogEntry
+  CombinedGameStoreState,
+  MultimodalSliceExports
 } from '../types';
 import { BEHAVIOR_CONFIG } from '../config/behaviorTuning';
-import { useGameStore } from './gameStore'; // Import the main store to interact with it
+import { INITIAL_LEDGER } from '../constants';
 
 // Helper to generate a unique ID
 const generateId = () => `mm_turn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -70,13 +71,13 @@ export interface MultimodalSlice {
   markMediaPending: (item: MediaQueueItem) => void;
   markMediaReady: (
     turnId: string,
-    type: 'image' | 'audio' | 'video',
+    type: 'image' | 'audio' | 'âni|vïdéó',
     dataUrl: string,
     duration?: number
   ) => void;
-  markMediaError: (turnId: string, type: 'image' | 'audio' | 'video', errorMessage: string) => void;
+  markMediaError: (turnId: string, type: 'image' | 'audio' | 'âni|vïdéó', errorMessage: string) => void;
   removeMediaFromQueue: (item: MediaQueueItem) => void;
-  retryFailedMedia: (turnId: string, type?: 'image' | 'audio' | 'video') => void;
+  retryFailedMedia: (turnId: string, type?: 'image' | 'audio' | 'âni|vïdéó') => void;
 
   // Audio Playback Actions
   playTurn: (turnId: string) => Promise<void>;
@@ -94,7 +95,7 @@ export interface MultimodalSlice {
 }
 
 export const createMultimodalSlice: StateCreator<
-  MultimodalSlice & GameState // Combine with main GameState if needed
+  CombinedGameStoreState
 > = (set, get) => ({
   multimodalTimeline: [],
   currentTurnId: null,
@@ -114,19 +115,26 @@ export const createMultimodalSlice: StateCreator<
   },
 
   registerTurn: (text, visualPrompt, metadata) => {
-    const newTurnIndex = get().multimodalTimeline.length;
+    // Access root state and safely drill down to gameState
+    const state = get(); 
+    // Fallback to INITIAL_LEDGER if ledger is not yet ready to prevent undefined access
+    const currentLedger = state.gameState.ledger || INITIAL_LEDGER; 
+    const currentLocation = state.gameState.location || "Unknown";
+
+    const newTurnIndex = state.multimodalTimeline.length;
     const newTurn: MultimodalTurn = {
       id: generateId(),
       turnIndex: newTurnIndex,
       text,
       visualPrompt,
-      imageStatus: 'idle',
-      audioStatus: 'idle',
-      videoStatus: 'idle',
+      // Updated to use MediaStatus enum
+      imageStatus: MediaStatus.IDLE,
+      audioStatus: MediaStatus.IDLE,
+      videoStatus: MediaStatus.IDLE,
       metadata: {
-        ledgerSnapshot: metadata?.ledgerSnapshot || { ...get().ledger }, // Snapshot current ledger
+        ledgerSnapshot: metadata?.ledgerSnapshot || { ...currentLedger },
         activeCharacters: metadata?.activeCharacters || [],
-        location: metadata?.location || get().location,
+        location: metadata?.location || currentLocation,
         tags: metadata?.tags || [],
         simulationLog: metadata?.simulationLog,
         directorDebug: metadata?.directorDebug,
@@ -178,7 +186,7 @@ export const createMultimodalSlice: StateCreator<
     const { multimodalTimeline, mediaQueue } = get();
     const totalTurns = multimodalTimeline.length;
     const loadedTurns = multimodalTimeline.filter(
-      (t) => t.imageStatus === 'ready' && t.audioStatus === 'ready' && t.videoStatus !== 'pending'
+      (t) => t.imageStatus === MediaStatus.READY && t.audioStatus === MediaStatus.READY && t.videoStatus !== MediaStatus.PENDING
     ).length;
     const pendingMedia = mediaQueue.pending.length + mediaQueue.inProgress.length;
     const failedMedia = mediaQueue.failed.length;
@@ -225,7 +233,7 @@ export const createMultimodalSlice: StateCreator<
       },
       multimodalTimeline: state.multimodalTimeline.map((turn) =>
         turn.id === item.turnId
-          ? { ...turn, [`${item.type}Status`]: 'pending' as MediaStatus }
+          ? { ...turn, [`${item.type}Status`]: MediaStatus.PENDING } // Updated to use MediaStatus enum
           : turn
       ),
     }));
@@ -241,7 +249,7 @@ export const createMultimodalSlice: StateCreator<
       },
       multimodalTimeline: state.multimodalTimeline.map((turn) => {
         if (turn.id === turnId) {
-          const update: Partial<MultimodalTurn> = { [`${type}Status`]: 'ready' };
+          const update: Partial<MultimodalTurn> = { [`${type}Status`]: MediaStatus.READY }; // Updated to use MediaStatus enum
           if (type === 'image') update.imageData = dataUrl;
           if (type === 'audio') {
             update.audioUrl = dataUrl;
@@ -269,7 +277,7 @@ export const createMultimodalSlice: StateCreator<
         },
         multimodalTimeline: state.multimodalTimeline.map((turn) =>
           turn.id === turnId
-            ? { ...turn, [`${type}Status`]: 'error' as MediaStatus, [`${type}Error`]: errorMessage }
+            ? { ...turn, [`${type}Status`]: MediaStatus.ERROR, [`${type}Error`]: errorMessage } // Updated to use MediaStatus enum
             : turn
         ),
       };
@@ -309,7 +317,7 @@ export const createMultimodalSlice: StateCreator<
           const updatedTurn = { ...turn };
           failedItems.forEach(item => {
             if (!type || item.type === type) {
-              updatedTurn[`${item.type}Status`] = 'idle'; // Reset to idle for retry
+              updatedTurn[`${item.type}Status`] = MediaStatus.IDLE; // Reset to idle for retry
               delete updatedTurn[`${item.type}Error`]; // Clear error message
             }
           });
@@ -334,18 +342,13 @@ export const createMultimodalSlice: StateCreator<
     const { audioPlayback, multimodalTimeline, setHasUserInteraction } = get();
     const turn = multimodalTimeline.find((t) => t.id === turnId);
 
-    if (!turn || turn.audioStatus !== 'ready' || !turn.audioUrl) {
+    if (!turn || turn.audioStatus !== MediaStatus.READY || !turn.audioUrl) { // Updated to use MediaStatus enum
       if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.warn(`[MultimodalSlice] Cannot play turn ${turnId}: not ready or no audioUrl.`);
       return;
     }
 
-    // Stop any currently playing audio first
     if (audioPlayback.isPlaying && audioPlayback.currentPlayingTurnId) {
-      // Find the AudioBufferSourceNode associated with the current playing turn and stop it
-      // This requires storing the source node reference, which is not directly in Zustand.
-      // For simplicity, we'll stop all sources when a new one is played or paused.
-      // A more robust solution would map turnId to its AudioBufferSourceNode.
-      audioContext.suspend(); // Pause all playback
+      audioContext.suspend(); 
     }
 
     try {
@@ -359,14 +362,12 @@ export const createMultimodalSlice: StateCreator<
       source.onended = () => {
         set((state) => {
           if (state.audioPlayback.autoAdvance && state.audioPlayback.currentPlayingTurnId === turnId) {
-            // Automatically advance to the next turn if autoAdvance is on
             const currentIndex = state.multimodalTimeline.findIndex(t => t.id === turnId);
             if (currentIndex !== -1 && currentIndex < state.multimodalTimeline.length - 1) {
               const nextTurn = state.multimodalTimeline[currentIndex + 1];
-              // Use setTimeout to allow the current turn to fully stop before starting the next
               setTimeout(() => {
-                get().setCurrentTurn(nextTurn.id); // Update current turn UI
-                get().playTurn(nextTurn.id); // Play next turn audio
+                get().setCurrentTurn(nextTurn.id); 
+                get().playTurn(nextTurn.id); 
               }, 100); 
             }
           }
@@ -376,10 +377,10 @@ export const createMultimodalSlice: StateCreator<
         });
       };
 
-      source.start(0); // Play from the beginning
-      audioContext.resume(); // Ensure context is running
+      source.start(0); 
+      audioContext.resume(); 
 
-      setHasUserInteraction(); // Mark that user interaction has occurred
+      setHasUserInteraction(); 
 
       set((state) => ({
         audioPlayback: {
@@ -390,15 +391,13 @@ export const createMultimodalSlice: StateCreator<
         },
       }));
 
-      // Update current time every second (or more frequently if needed)
-      let playbackInterval: NodeJS.Timeout | null = null;
+      // Changed NodeJS.Timeout to number for browser compatibility
+      let playbackInterval: number | null = null;
       playbackInterval = setInterval(() => {
         set((state) => {
-          // Check if the current audio is still playing the same turn
           if (state.audioPlayback.currentPlayingTurnId === turnId && state.audioPlayback.isPlaying) {
             const newTime = state.audioPlayback.currentTime + 1;
             if (newTime >= (turn.audioDuration || Infinity)) {
-              // If audio has theoretically ended, clear interval (onended will handle state)
               if (playbackInterval) clearInterval(playbackInterval);
               return state;
             }
@@ -406,12 +405,11 @@ export const createMultimodalSlice: StateCreator<
               audioPlayback: { ...state.audioPlayback, currentTime: newTime },
             };
           } else {
-            // Audio stopped or switched, clear interval
             if (playbackInterval) clearInterval(playbackInterval);
             return state;
           }
         });
-      }, 1000); // Update every 1 second
+      }, 1000); 
 
     } catch (error) {
       console.error(`[MultimodalSlice] Error playing audio for turn ${turnId}:`, error);
@@ -434,23 +432,16 @@ export const createMultimodalSlice: StateCreator<
   },
 
   seekAudio: (time) => {
-    // Current implementation of playTurn starts from 0,
-    // robust seek requires re-creating source with offset.
-    // For now, it will just update the visual currentTime
     set((state) => ({ audioPlayback: { ...state.audioPlayback, currentTime: time } }));
     console.warn("[MultimodalSlice] Audio seeking not fully implemented with current PCM playback logic. Only UI state updated.");
   },
 
   setVolume: (volume) => {
-    // Requires a GainNode in the AudioContext pipeline. Not implemented in basic playback above.
-    // This will only update the UI state.
     set((state) => ({ audioPlayback: { ...state.audioPlayback, volume } }));
     console.warn("[MultimodalSlice] Audio volume control not fully implemented. Only UI state updated.");
   },
 
   setPlaybackRate: (rate) => {
-    // Requires setting playbackRate on AudioBufferSourceNode. Not implemented in basic playback above.
-    // This will only update the UI state.
     set((state) => ({ audioPlayback: { ...state.audioPlayback, playbackRate: rate } }));
     console.warn("[MultimodalSlice] Audio playback rate control not fully implemented. Only UI state updated.");
   },
@@ -478,9 +469,9 @@ export const createMultimodalSlice: StateCreator<
     }
 
     const hasText = !!turn.text;
-    const hasImage = turn.imageStatus === 'ready' && !!turn.imageData;
-    const hasAudio = turn.audioStatus === 'ready' && !!turn.audioUrl;
-    const hasVideo = turn.videoStatus === 'ready' && !!turn.videoUrl;
+    const hasImage = turn.imageStatus === MediaStatus.READY && !!turn.imageData; // Updated to use MediaStatus enum
+    const hasAudio = turn.audioStatus === MediaStatus.READY && !!turn.audioUrl; // Updated to use MediaStatus enum
+    const hasVideo = turn.videoStatus === MediaStatus.READY && !!turn.videoUrl; // Updated to use MediaStatus enum
 
     const totalModalities = 4; // text, image, audio, video
     let loadedModalities = 0;
@@ -490,7 +481,7 @@ export const createMultimodalSlice: StateCreator<
     if (hasVideo) loadedModalities++;
 
     const isFullyLoaded = hasText && hasImage && hasAudio && hasVideo;
-    const hasErrors = turn.imageStatus === 'error' || turn.audioStatus === 'error' || turn.videoStatus === 'error';
+    const hasErrors = turn.imageStatus === MediaStatus.ERROR || turn.audioStatus === MediaStatus.ERROR || turn.videoStatus === MediaStatus.ERROR; // Updated to use MediaStatus enum
     const completionPercentage = (loadedModalities / totalModalities) * 100;
 
     return {
@@ -523,8 +514,7 @@ export const createMultimodalSlice: StateCreator<
         hasUserInteraction: false,
       },
     });
-    // Ensure to stop any active audio playback
     getAudioContext().close().catch(e => console.error("Error closing AudioContext:", e));
-    globalAudioContext = null; // Reset context
+    globalAudioContext = null; 
   },
 });

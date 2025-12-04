@@ -4,11 +4,8 @@ import {
   MultimodalTurn,
   MediaStatus,
   MediaQueueItem,
-  AudioPlaybackState,
-  CoherenceReport,
-  GameState,
-  YandereLedger,
-  LogEntry
+  CombinedGameStoreState,
+  MultimodalSlice
 } from '../types';
 import { BEHAVIOR_CONFIG } from '../config/behaviorTuning';
 import { INITIAL_LEDGER } from '../constants';
@@ -36,66 +33,11 @@ const getAudioContext = () => {
   return globalAudioContext;
 };
 
-// Main interface for the multimodal slice
-export interface MultimodalSlice {
-  multimodalTimeline: MultimodalTurn[];
-  currentTurnId: string | null;
-  mediaQueue: {
-    pending: MediaQueueItem[];
-    inProgress: MediaQueueItem[];
-    failed: MediaQueueItem[];
-  };
-  audioPlayback: AudioPlaybackState;
-
-  // Timeline Actions
-  registerTurn: (
-    text: string,
-    visualPrompt: string,
-    metadata?: Partial<MultimodalTurn['metadata']>
-  ) => MultimodalTurn;
-  setCurrentTurn: (turnId: string) => void;
-  goToNextTurn: () => void;
-  goToPreviousTurn: () => void;
-  getTurnById: (turnId: string) => MultimodalTurn | undefined;
-  getTimelineStats: () => {
-    totalTurns: number;
-    loadedTurns: number;
-    pendingMedia: number;
-    failedMedia: number;
-    completionRate: number;
-  };
-  pruneOldTurns: (keepCount: number) => void;
-
-  // Media Queue Actions
-  enqueueMediaForTurn: (item: MediaQueueItem) => void;
-  markMediaPending: (item: MediaQueueItem) => void;
-  markMediaReady: (
-    turnId: string,
-    type: 'image' | 'audio' | 'video',
-    dataUrl: string,
-    duration?: number
-  ) => void;
-  markMediaError: (turnId: string, type: 'image' | 'audio' | 'video', errorMessage: string) => void;
-  removeMediaFromQueue: (item: MediaQueueItem) => void;
-  retryFailedMedia: (turnId: string, type?: 'image' | 'audio' | 'video') => void;
-
-  // Audio Playback Actions
-  playTurn: (turnId: string) => Promise<void>;
-  pauseAudio: () => void;
-  resumeAudio: () => void;
-  seekAudio: (time: number) => void;
-  setVolume: (volume: number) => void;
-  setPlaybackRate: (rate: number) => void;
-  toggleAutoAdvance: () => void;
-  setHasUserInteraction: () => void;
-
-  // Utility Actions
-  getCoherenceReport: (turnId: string) => CoherenceReport;
-  resetMultimodalState: () => void;
-}
-
 export const createMultimodalSlice: StateCreator<
-  MultimodalSlice 
+  CombinedGameStoreState,
+  [],
+  [],
+  MultimodalSlice
 > = (set, get) => ({
   multimodalTimeline: [],
   currentTurnId: null,
@@ -116,10 +58,10 @@ export const createMultimodalSlice: StateCreator<
 
   registerTurn: (text, visualPrompt, metadata) => {
     // Access root state and safely drill down to gameState
-    const state = get() as any; 
+    const state = get(); 
     // Fallback to INITIAL_LEDGER if ledger is not yet ready to prevent undefined access
-    const currentLedger = state.gameState?.ledger || INITIAL_LEDGER; 
-    const currentLocation = state.gameState?.location || "Unknown";
+    const currentLedger = state.gameState.ledger || INITIAL_LEDGER; 
+    const currentLocation = state.gameState.location || "Unknown";
 
     const newTurnIndex = state.multimodalTimeline.length;
     const newTurn: MultimodalTurn = {
@@ -127,9 +69,10 @@ export const createMultimodalSlice: StateCreator<
       turnIndex: newTurnIndex,
       text,
       visualPrompt,
-      imageStatus: 'idle',
-      audioStatus: 'idle',
-      videoStatus: 'idle',
+      // Updated to use strict MediaStatus enum
+      imageStatus: MediaStatus.IDLE,
+      audioStatus: MediaStatus.IDLE,
+      videoStatus: MediaStatus.IDLE,
       metadata: {
         ledgerSnapshot: metadata?.ledgerSnapshot || { ...currentLedger },
         activeCharacters: metadata?.activeCharacters || [],
@@ -139,7 +82,7 @@ export const createMultimodalSlice: StateCreator<
         directorDebug: metadata?.directorDebug,
       },
     };
-    set((state: any) => ({
+    set((state) => ({
       multimodalTimeline: [...state.multimodalTimeline, newTurn],
       currentTurnId: newTurn.id, // Automatically set new turn as current
     }));
@@ -185,7 +128,7 @@ export const createMultimodalSlice: StateCreator<
     const { multimodalTimeline, mediaQueue } = get();
     const totalTurns = multimodalTimeline.length;
     const loadedTurns = multimodalTimeline.filter(
-      (t) => t.imageStatus === 'ready' && t.audioStatus === 'ready' && t.videoStatus !== 'pending'
+      (t) => t.imageStatus === MediaStatus.READY && t.audioStatus === MediaStatus.READY && t.videoStatus !== MediaStatus.PENDING
     ).length;
     const pendingMedia = mediaQueue.pending.length + mediaQueue.inProgress.length;
     const failedMedia = mediaQueue.failed.length;
@@ -232,7 +175,7 @@ export const createMultimodalSlice: StateCreator<
       },
       multimodalTimeline: state.multimodalTimeline.map((turn) =>
         turn.id === item.turnId
-          ? { ...turn, [`${item.type}Status`]: 'pending' as MediaStatus }
+          ? { ...turn, [`${item.type}Status`]: MediaStatus.PENDING } // Use strict Enum
           : turn
       ),
     }));
@@ -248,7 +191,7 @@ export const createMultimodalSlice: StateCreator<
       },
       multimodalTimeline: state.multimodalTimeline.map((turn) => {
         if (turn.id === turnId) {
-          const update: Partial<MultimodalTurn> = { [`${type}Status`]: 'ready' };
+          const update: Partial<MultimodalTurn> = { [`${type}Status`]: MediaStatus.READY }; // Use strict Enum
           if (type === 'image') update.imageData = dataUrl;
           if (type === 'audio') {
             update.audioUrl = dataUrl;
@@ -276,7 +219,7 @@ export const createMultimodalSlice: StateCreator<
         },
         multimodalTimeline: state.multimodalTimeline.map((turn) =>
           turn.id === turnId
-            ? { ...turn, [`${type}Status`]: 'error' as MediaStatus, [`${type}Error`]: errorMessage }
+            ? { ...turn, [`${type}Status`]: MediaStatus.ERROR, [`${type}Error`]: errorMessage } // Use strict Enum
             : turn
         ),
       };
@@ -316,7 +259,7 @@ export const createMultimodalSlice: StateCreator<
           const updatedTurn = { ...turn };
           failedItems.forEach(item => {
             if (!type || item.type === type) {
-              updatedTurn[`${item.type}Status`] = 'idle'; // Reset to idle for retry
+              updatedTurn[`${item.type}Status`] = MediaStatus.IDLE; // Reset to IDLE for retry
               delete updatedTurn[`${item.type}Error`]; // Clear error message
             }
           });
@@ -341,7 +284,7 @@ export const createMultimodalSlice: StateCreator<
     const { audioPlayback, multimodalTimeline, setHasUserInteraction } = get();
     const turn = multimodalTimeline.find((t) => t.id === turnId);
 
-    if (!turn || turn.audioStatus !== 'ready' || !turn.audioUrl) {
+    if (!turn || turn.audioStatus !== MediaStatus.READY || !turn.audioUrl) {
       if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.warn(`[MultimodalSlice] Cannot play turn ${turnId}: not ready or no audioUrl.`);
       return;
     }
@@ -390,8 +333,9 @@ export const createMultimodalSlice: StateCreator<
         },
       }));
 
-      let playbackInterval: ReturnType<typeof setTimeout> | null = null;
-      playbackInterval = setInterval(() => {
+      // Use window.setInterval to ensure return type is number (browser compatible)
+      let playbackInterval: number | undefined;
+      playbackInterval = window.setInterval(() => {
         set((state) => {
           if (state.audioPlayback.currentPlayingTurnId === turnId && state.audioPlayback.isPlaying) {
             const newTime = state.audioPlayback.currentTime + 1;
@@ -467,9 +411,9 @@ export const createMultimodalSlice: StateCreator<
     }
 
     const hasText = !!turn.text;
-    const hasImage = turn.imageStatus === 'ready' && !!turn.imageData;
-    const hasAudio = turn.audioStatus === 'ready' && !!turn.audioUrl;
-    const hasVideo = turn.videoStatus === 'ready' && !!turn.videoUrl;
+    const hasImage = turn.imageStatus === MediaStatus.READY && !!turn.imageData;
+    const hasAudio = turn.audioStatus === MediaStatus.READY && !!turn.audioUrl;
+    const hasVideo = turn.videoStatus === MediaStatus.READY && !!turn.videoUrl;
 
     const totalModalities = 4; // text, image, audio, video
     let loadedModalities = 0;
@@ -479,7 +423,7 @@ export const createMultimodalSlice: StateCreator<
     if (hasVideo) loadedModalities++;
 
     const isFullyLoaded = hasText && hasImage && hasAudio && hasVideo;
-    const hasErrors = turn.imageStatus === 'error' || turn.audioStatus === 'error' || turn.videoStatus === 'error';
+    const hasErrors = turn.imageStatus === MediaStatus.ERROR || turn.audioStatus === MediaStatus.ERROR || turn.videoStatus === MediaStatus.ERROR;
     const completionPercentage = (loadedModalities / totalModalities) * 100;
 
     return {

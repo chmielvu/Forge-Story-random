@@ -37,11 +37,11 @@ const ReactiveCanvas: React.FC<Props> = ({ ledger, isActive }) => {
     resize();
 
     const getParticleConfig = () => {
-      // Default safe values if ledger is missing
-      const trauma = ledger?.traumaLevel || 0;
-      const shame = ledger?.shamePainAbyssLevel || 0;
-      const arousal = ledger?.arousalLevel || 0;
-      const hope = ledger?.hopeLevel || 50;
+      // Defensive coding: Handle undefined ledger safely
+      const trauma = ledger?.traumaLevel ?? 0;
+      const shame = ledger?.shamePainAbyssLevel ?? 0;
+      const arousal = ledger?.arousalLevel ?? 0;
+      const hope = ledger?.hopeLevel ?? 50;
 
       return {
         spawnRate: Math.max(1, Math.floor(trauma / 10)),
@@ -78,7 +78,8 @@ const ReactiveCanvas: React.FC<Props> = ({ ledger, isActive }) => {
       // 2. Screen Shake Logic (Canvas Jitter)
       ctx.save();
       if (config.hasShake) {
-        const shakeIntensity = ((ledger?.traumaLevel || 0) / 20);
+        const trauma = ledger?.traumaLevel ?? 0;
+        const shakeIntensity = (trauma / 20);
         const dx = (Math.random() - 0.5) * shakeIntensity;
         const dy = (Math.random() - 0.5) * shakeIntensity;
         ctx.translate(dx, dy);

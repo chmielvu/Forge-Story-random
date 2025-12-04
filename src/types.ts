@@ -307,7 +307,14 @@ export interface FilteredSceneContext {
 }
 
 // --- MULTIMODAL SYSTEM TYPES ---
-export type MediaStatus = 'idle' | 'pending' | 'inProgress' | 'ready' | 'error';
+
+export enum MediaStatus {
+  IDLE = 'idle',
+  PENDING = 'pending',
+  IN_PROGRESS = 'inProgress',
+  READY = 'ready',
+  ERROR = 'error',
+}
 
 export interface MultimodalTurn {
   id: string; // Matches log entry ID
@@ -318,16 +325,16 @@ export interface MultimodalTurn {
   // Media status tracking
   imageStatus: MediaStatus;
   imageData?: string;
-  imageError?: string; // Added error field
+  imageError?: string;
   
   audioStatus: MediaStatus;
   audioUrl?: string; // Base64 audio string
   audioDuration?: number; // In seconds
-  audioError?: string; // Added error field
+  audioError?: string;
   
   videoStatus: MediaStatus;
   videoUrl?: string; // Base64 video string (or blob URL)
-  videoError?: string; // Added error field
+  videoError?: string;
   
   // Metadata for coherence, debug, etc.
   metadata?: {
@@ -368,4 +375,102 @@ export interface CoherenceReport {
   isFullyLoaded: boolean;
   hasErrors: boolean;
   completionPercentage: number; // % of modalities loaded
+}
+
+// --- ZUSTAND STORE TYPES ---
+
+// Interface for the Multimodal Slice
+export interface MultimodalSlice {
+  multimodalTimeline: MultimodalTurn[];
+  currentTurnId: string | null;
+  mediaQueue: {
+    pending: MediaQueueItem[];
+    inProgress: MediaQueueItem[];
+    failed: MediaQueueItem[];
+  };
+  audioPlayback: AudioPlaybackState;
+
+  // Timeline Actions
+  registerTurn: (
+    text: string,
+    visualPrompt: string,
+    metadata?: Partial<MultimodalTurn['metadata']>
+  ) => MultimodalTurn;
+  setCurrentTurn: (turnId: string) => void;
+  goToNextTurn: () => void;
+  goToPreviousTurn: () => void;
+  getTurnById: (turnId: string) => MultimodalTurn | undefined;
+  getTimelineStats: () => {
+    totalTurns: number;
+    loadedTurns: number;
+    pendingMedia: number;
+    failedMedia: number;
+    completionRate: number;
+  };
+  pruneOldTurns: (keepCount: number) => void;
+
+  // Media Queue Actions
+  enqueueMediaForTurn: (item: MediaQueueItem) => void;
+  markMediaPending: (item: MediaQueueItem) => void;
+  markMediaReady: (
+    turnId: string,
+    type: 'image' | 'audio' | 'video',
+    dataUrl: string,
+    duration?: number
+  ) => void;
+  markMediaError: (turnId: string, type: 'image' | 'audio' | 'video', errorMessage: string) => void;
+  removeMediaFromQueue: (item: MediaQueueItem) => void;
+  retryFailedMedia: (turnId: string, type?: 'image' | 'audio' | 'video') => void;
+
+  // Audio Playback Actions
+  playTurn: (turnId: string) => Promise<void>;
+  pauseAudio: () => void;
+  resumeAudio: () => void;
+  seekAudio: (time: number) => void;
+  setVolume: (volume: number) => void;
+  setPlaybackRate: (rate: number) => void;
+  toggleAutoAdvance: () => void;
+  setHasUserInteraction: () => void;
+
+  // Utility Actions
+  getCoherenceReport: (turnId: string) => CoherenceReport;
+  resetMultimodalState: () => void;
+}
+
+// Interface for the Full Game Store
+export interface CombinedGameStoreState extends MultimodalSlice {
+  // Core Game State
+  gameState: GameState;
+  logs: LogEntry[]; // Retained for NarrativeLog display, but multimodalTimeline is source of truth for media
+  choices: string[];
+  
+  // UI Flags
+  isThinking: boolean;
+  isMenuOpen: boolean;
+  isGrimoireOpen: boolean;
+  isDevOverlayOpen: boolean;
+  
+  // Dev / Debug Data
+  executedCode?: string;
+  lastSimulationLog?: string;
+  lastDirectorDebug?: string;
+
+  // Core Game Actions
+  addLog: (log: LogEntry) => void;
+  setLogs: (logs: LogEntry[]) => void;
+  setChoices: (choices: string[]) => void;
+  setThinking: (isThinking: boolean) => void;
+  setMenuOpen: (isOpen: boolean) => void;
+  setGrimoireOpen: (isOpen: boolean) => void;
+  setDevOverlayOpen: (isOpen: boolean) => void;
+  
+  // Complex Updates
+  updateGameState: (updates: Partial<GameState>) => void;
+  applyDirectorUpdates: (response: DirectorOutput) => void;
+  
+  // System
+  resetGame: () => void;
+  saveSnapshot: () => void;
+  loadSnapshot: () => void;
+  updateLogMedia: (logId: string, media: { imageData?: string, audioData?: string, videoData?: string }) => void;
 }

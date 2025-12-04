@@ -1,10 +1,11 @@
 
 import { useGameStore } from './gameStore';
 import { generateNarrativeImage, generateSpeech, animateImageWithVeo } from '../services/mediaService';
-import { MediaQueueItem, MediaStatus, MultimodalTurn } from '../types';
+import { MediaStatus, MediaQueueItem, MultimodalTurn } from '../types';
 import { BEHAVIOR_CONFIG } from '../config/behaviorTuning';
 
-let mediaProcessingTimeout: ReturnType<typeof setTimeout> | null = null;
+// Use number for browser-compatible timer type
+let mediaProcessingTimeout: number | null = null;
 const MEDIA_PROCESSING_DELAY_MS = 500; // Delay between processing queue items
 
 /**
@@ -20,7 +21,8 @@ const processMediaQueue = async (): Promise<void> => {
     if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.log("[MediaController] Skipping media generation due to DEV_CONFIG.skipMediaGeneration.");
     // Clear queue so it doesn't build up
     if (mediaQueue.pending.length > 0) {
-      setTimeout(() => useGameStore.setState(s => ({
+      // Use window.setTimeout instead of setImmediate for browser compatibility
+      window.setTimeout(() => useGameStore.setState(s => ({
         mediaQueue: { ...s.mediaQueue, pending: [] }
       })), 0);
     }
@@ -30,8 +32,8 @@ const processMediaQueue = async (): Promise<void> => {
   if (mediaQueue.inProgress.length > 0) {
     // Already processing an item, reschedule check
     if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.log("[MediaController] Media generation in progress, rescheduling queue check.");
-    if (mediaProcessingTimeout) clearTimeout(mediaProcessingTimeout);
-    mediaProcessingTimeout = setTimeout(processMediaQueue, MEDIA_PROCESSING_DELAY_MS);
+    if (mediaProcessingTimeout) window.clearTimeout(mediaProcessingTimeout);
+    mediaProcessingTimeout = window.setTimeout(processMediaQueue, MEDIA_PROCESSING_DELAY_MS);
     return;
   }
 
@@ -50,8 +52,8 @@ const processMediaQueue = async (): Promise<void> => {
     console.error(`[MediaController] Turn ${nextItem.turnId} not found for media item ${nextItem.type}. Removing from queue.`);
     removeMediaFromQueue(nextItem);
     // Continue processing next item
-    if (mediaProcessingTimeout) clearTimeout(mediaProcessingTimeout);
-    mediaProcessingTimeout = setTimeout(processMediaQueue, MEDIA_PROCESSING_DELAY_MS);
+    if (mediaProcessingTimeout) window.clearTimeout(mediaProcessingTimeout);
+    mediaProcessingTimeout = window.setTimeout(processMediaQueue, MEDIA_PROCESSING_DELAY_MS);
     return;
   }
 
@@ -75,8 +77,6 @@ const processMediaQueue = async (): Promise<void> => {
       case 'video':
         if (BEHAVIOR_CONFIG.ANIMATION.ENABLE_VEO && BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideo) {
           // For video, we need the image data first.
-          // This highlights a potential dependency. For now, assume image is ready or handled.
-          // A more robust system would check imageStatus.
           const imageData = multimodalTimeline.find(t => t.id === nextItem.turnId)?.imageData;
           if (imageData) {
             dataUrl = await animateImageWithVeo(imageData, nextItem.prompt);
@@ -103,16 +103,15 @@ const processMediaQueue = async (): Promise<void> => {
     // After marking as error, attempt to retry if not maxed out
     const currentItem = store.mediaQueue.inProgress.find((q) => q.turnId === nextItem.turnId && q.type === nextItem.type);
     if (currentItem && (currentItem.retries || 0) < BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.MAX_MEDIA_QUEUE_RETRIES) {
-      if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.log(`[MediaController] Retrying ${nextItem.type} for turn ${nextItem.turnId}. Attempt ${currentItem.retries + 1}`);
+      if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.log(`[MediaController] Retrying ${nextItem.type} for turn ${nextItem.turnId}. Attempt ${(currentItem.retries || 0) + 1}`);
       retryFailedMedia(nextItem.turnId, nextItem.type); // Enqueue for retry
     } else {
       if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.warn(`[MediaController] Max retries reached for ${nextItem.type} on turn ${nextItem.turnId}. Moving to failed queue.`);
-      // It's already in the failed queue via markMediaError, no further action needed.
     }
   } finally {
     // Process next item after a short delay, regardless of success or failure
-    if (mediaProcessingTimeout) clearTimeout(mediaProcessingTimeout);
-    mediaProcessingTimeout = setTimeout(processMediaQueue, MEDIA_PROCESSING_DELAY_MS);
+    if (mediaProcessingTimeout) window.clearTimeout(mediaProcessingTimeout);
+    mediaProcessingTimeout = window.setTimeout(processMediaQueue, MEDIA_PROCESSING_DELAY_MS);
   }
 };
 
@@ -131,7 +130,7 @@ export const enqueueTurnForMedia = (turn: MultimodalTurn, forceEnqueue: boolean 
   }
 
   // Image
-  if ((turn.imageStatus === 'idle' || forceEnqueue) && BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableImages) {
+  if ((turn.imageStatus === MediaStatus.IDLE || forceEnqueue) && BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableImages) {
     store.enqueueMediaForTurn({
       turnId: turn.id,
       type: 'image',
@@ -142,7 +141,7 @@ export const enqueueTurnForMedia = (turn: MultimodalTurn, forceEnqueue: boolean 
   }
 
   // Audio
-  if ((turn.audioStatus === 'idle' || forceEnqueue) && BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableAudio) {
+  if ((turn.audioStatus === MediaStatus.IDLE || forceEnqueue) && BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableAudio) {
     store.enqueueMediaForTurn({
       turnId: turn.id,
       type: 'audio',
@@ -156,7 +155,7 @@ export const enqueueTurnForMedia = (turn: MultimodalTurn, forceEnqueue: boolean 
   const isHighIntensity = (turn.metadata?.ledgerSnapshot?.traumaLevel || 0) > BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideoAboveTrauma ||
                           (turn.metadata?.ledgerSnapshot?.shamePainAbyssLevel || 0) > BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideoAboveShame;
   
-  if ((turn.videoStatus === 'idle' || forceEnqueue) && BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideo && isHighIntensity) {
+  if ((turn.videoStatus === MediaStatus.IDLE || forceEnqueue) && BEHAVIOR_CONFIG.MEDIA_THRESHOLDS.enableVideo && isHighIntensity) {
     store.enqueueMediaForTurn({
       turnId: turn.id,
       type: 'video',
@@ -169,7 +168,7 @@ export const enqueueTurnForMedia = (turn: MultimodalTurn, forceEnqueue: boolean 
   // Start processing if not already running
   if (!mediaProcessingTimeout) {
     if (BEHAVIOR_CONFIG.DEV_MODE.verboseLogging) console.log("[MediaController] Starting media queue processing.");
-    mediaProcessingTimeout = setTimeout(processMediaQueue, MEDIA_PROCESSING_DELAY_MS);
+    mediaProcessingTimeout = window.setTimeout(processMediaQueue, MEDIA_PROCESSING_DELAY_MS);
   }
 };
 
@@ -195,13 +194,13 @@ export const regenerateMediaForTurn = async (turnId: string, type?: 'image' | 'a
   itemsToRemove.forEach(item => store.removeMediaFromQueue(item));
 
   // Reset status in timeline
-  store.set((state) => ({
+  useGameStore.setState((state) => ({
     multimodalTimeline: state.multimodalTimeline.map((t) => {
       if (t.id === turnId) {
         const updatedTurn = { ...t };
-        if (!type || type === 'image') updatedTurn.imageStatus = 'idle';
-        if (!type || type === 'audio') updatedTurn.audioStatus = 'idle';
-        if (!type || type === 'video') updatedTurn.videoStatus = 'idle';
+        if (!type || type === 'image') updatedTurn.imageStatus = MediaStatus.IDLE;
+        if (!type || type === 'audio') updatedTurn.audioStatus = MediaStatus.IDLE;
+        if (!type || type === 'video') updatedTurn.videoStatus = MediaStatus.IDLE;
         return updatedTurn;
       }
       return t;

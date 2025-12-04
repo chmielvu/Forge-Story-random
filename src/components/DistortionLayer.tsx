@@ -8,8 +8,13 @@ interface Props {
 }
 
 const DistortionLayer: React.FC<Props> = ({ children, ledger }) => {
-  const trauma = ledger?.traumaLevel || 0;
-  const shame = ledger?.shamePainAbyssLevel || 0;
+  // If ledger is missing, render children without effects to prevent crash
+  if (!ledger) {
+    return <div className="relative w-full h-full overflow-hidden">{children}</div>;
+  }
+
+  const trauma = ledger.traumaLevel || 0;
+  const shame = ledger.shamePainAbyssLevel || 0;
 
   // Dynamic styles based on stats
   const blurAmount = Math.max(0, (trauma - 50) / 20); // Starts blurring after 50 trauma
