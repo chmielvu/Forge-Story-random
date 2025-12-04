@@ -1,8 +1,7 @@
-
 import { GoogleGenAI, Modality, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { YandereLedger, PrefectDNA, CharacterId } from "../types";
 import { VISUAL_PROFILES } from "../constants";
-import { BEHAVIOR_CONFIG } from "../config/behaviorTuning"; // Import behavior config
+import { BEHAVIOR_CONFIG } from "../config/behaviorTuning"; 
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -80,7 +79,7 @@ export function buildVisualPrompt(
   
   let subject: any = {};
   let moodModifiers: string[] = ["clinical-chiaroscuro"];
-  let aestheticInjects: string[] = [];
+  let aestheticInjects: string[] = []; // Collect special tokens here
   
   // Clone strict mandates to avoid mutation
   const promptTechnical = { ...VISUAL_MANDATE.technical };
@@ -226,14 +225,39 @@ export const generateNarrativeImage = async (visualPromptRaw: string): Promise<s
     return Promise.resolve(undefined);
   }
 
-  // Enforcing the JSON Structure Mandate
+  // PARSE LOGIC: Attempt to parse the visualPromptRaw if it is JSON from the Director
+  let dynamicPromptData: any = {};
+  let rawDescription = visualPromptRaw;
+
+  try {
+    if (visualPromptRaw.trim().startsWith('{')) {
+        dynamicPromptData = JSON.parse(visualPromptRaw);
+    }
+  } catch (e) {
+    console.warn("Visual prompt is not JSON, falling back to raw text injection.");
+  }
+
+  // Enforcing the JSON Structure Mandate (Dynamically)
   const structuredPrompt = {
     ...VISUAL_MANDATE,
-    aesthetic_lock: ZERO_DRIFT_HEADER, // Pass the lock to the JSON logic
-    scene_description: visualPromptRaw,
-    environment_directives: "raw concrete chamber, leather books, surgical tools, faint wine goblet, damp stone walls",
-    character_directives: "Female characters: White shirts half-unbuttoned revealing lace bra/cleavage, high slits, sheer stockings. Male characters: Disheveled, sweating, open shirts. Predatory expressions.",
-    lighting_directives: "Single gaslight source, deep shadows, volumetric fog, rim lighting on sweat/skin."
+    aesthetic_lock: ZERO_DRIFT_HEADER,
+    
+    // 1. SCENE: Prefer parsed 'scene_context' or 'description', fallback to raw
+    scene_description: dynamicPromptData.scene_context || dynamicPromptData.description || rawDescription,
+    
+    // 2. ENVIRONMENT: Prefer parsed 'environment', fallback to generic dark academia
+    environment_directives: dynamicPromptData.environment || "dark stone architecture, flickering gaslight, oppressive atmosphere, shadows",
+    
+    // 3. SUBJECTS: Prefer parsed 'subject' details, fallback to generic
+    character_directives: dynamicPromptData.subject 
+        ? `Focus on ${dynamicPromptData.subject.name || 'Character'}: ${dynamicPromptData.subject.description || ''}. Attire: ${dynamicPromptData.subject.attire || 'dark uniform'}. Expression: ${dynamicPromptData.specific_mood || 'intense'}.` 
+        : "Characters appearing in the scene, detailed dark academic attire, expressive faces, dramatic lighting.",
+    
+    // 4. AESTHETICS: Inject tokens
+    aesthetic_injects: dynamicPromptData.aesthetic_injects || "",
+
+    // 5. LIGHTING: Prefer parsed 'technical.lighting', fallback to mandate
+    lighting_directives: dynamicPromptData.technical?.lighting || VISUAL_MANDATE.technical.lighting
   };
 
   // Flattening for the model to interpret as a strict directive
