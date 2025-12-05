@@ -164,11 +164,9 @@ export const useGameStore = create<CombinedGameStoreState>((set, get, api) => ({
 
 // --- Zustand Selectors for optimized re-renders ---
 export const useShallowGameState = () => useGameStore(
-  state => state.gameState,
-  shallow
+  state => state.gameState
 );
 
 export const useMultimodalTimeline = () => useGameStore(
-  state => state.multimodalTimeline,
-  (a, b) => a.length === b.length && a[0]?.id === b[0]?.id // Simple shallow comparison for timeline changes
+  state => state.multimodalTimeline
 );

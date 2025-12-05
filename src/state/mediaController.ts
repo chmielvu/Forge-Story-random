@@ -151,14 +151,14 @@ const processMediaQueue = async (): Promise<void> => {
 /**
  * Enqueues a turn's required media for generation.
  * @param {MultimodalTurn} turn The turn to generate media for.
- * @param {PrefectDNA | CharacterId} target The main character or subject of the visual.
+ * @param {PrefectDNA | CharacterId | string} target The main character or subject of the visual.
  * @param {YandereLedger} ledger The current ledger state.
  * @param {MultimodalTurn} [previousTurn] The preceding multimodal turn for visual continuity.
  * @param {boolean} forceEnqueue If true, forces re-enqueueing even if status is not 'idle'.
  */
 export const enqueueTurnForMedia = (
   turn: MultimodalTurn,
-  target: PrefectDNA | CharacterId,
+  target: PrefectDNA | CharacterId | string,
   ledger: YandereLedger,
   previousTurn?: MultimodalTurn,
   forceEnqueue: boolean = false
@@ -244,7 +244,8 @@ export const regenerateMediaForTurn = async (turnId: string, type?: 'image' | 'a
   // Get previous turn and target for re-enqueueing
   const previousTurnIndex = turn.turnIndex - 1;
   const previousTurn = previousTurnIndex >= 0 ? store.multimodalTimeline[previousTurnIndex] : undefined;
-  const target = turn.metadata?.activeCharacters?.[0] || CharacterId.PLAYER; // Default to player if no specific character
+  // Default to player if no specific character
+  const target = turn.metadata?.activeCharacters?.[0] || CharacterId.PLAYER;
 
   // Remove existing pending/in-progress/failed items for this turn/type
   const itemsToRemove: MediaQueueItem[] = [];

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import * as d3 from 'd3';
 import { GraphNode, GraphLink, CharacterId, YandereLedger } from '../types';
 
@@ -10,12 +10,26 @@ interface Props {
   executedCode?: string; // New prop to show code execution status
 }
 
+// Strict typing for D3 Simulation
+interface SimulationNode extends d3.SimulationNodeDatum, GraphNode {}
+
 const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger, executedCode }) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Default values if ledger is missing
   const trauma = ledger?.traumaLevel || 0;
   const hope = ledger?.hopeLevel || 50;
+
+  // 1. Stable References: Prevent simulation restart unless data *actually* changes
+  // We map to new objects to allow D3 to mutate x/y/vx/vy without polluting the Zustand store props
+  // Using useMemo ensures this only happens when nodes/links prop arrays actually change reference
+  const simulationNodes = useMemo(() => 
+    nodes.map(n => ({ ...n })) as SimulationNode[], 
+  [nodes]);
+
+  const simulationLinks = useMemo(() => 
+    links.map(l => ({ ...l, source: typeof l.source === 'string' ? l.source : (l.source as any).id, target: typeof l.target === 'string' ? l.target : (l.target as any).id })) as d3.SimulationLinkDatum<SimulationNode>, 
+  [links]);
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -29,21 +43,13 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger, executedCode }) =
     const svg = d3.select(svgRef.current)
       .attr("viewBox", [0, 0, width, height]);
 
-    // CRITICAL FIX: Deep clone data to prevent D3 from mutating React props/state
-    const simulationNodes = nodes.map(n => ({...n}));
-    const simulationLinks = links.map(l => ({
-      source: typeof l.source === 'string' ? l.source : (l.source as any).id,
-      target: typeof l.target === 'string' ? l.target : (l.target as any).id,
-      relation: l.relation,
-      weight: l.weight
-    }));
-
     // Simulation setup
-    const simulation = d3.forceSimulation(simulationNodes)
-      .force("link", d3.forceLink(simulationLinks).id((d: any) => d.id).distance(100))
+    const simulation = d3.forceSimulation<SimulationNode>(simulationNodes)
+      .force("link", d3.forceLink<SimulationNode, d3.SimulationLinkDatum<SimulationNode>>(simulationLinks).id(d => d.id).distance(100))
       .force("charge", d3.forceManyBody().strength(-300))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collide", d3.forceCollide().radius(40));
+      .force("collide", d3.forceCollide().radius(40))
+      .alphaDecay(0.05); // Stabilize faster
 
     // --- RENDER LINKS ---
     const getLinkColor = (relation: string) => {
@@ -96,7 +102,7 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger, executedCode }) =
       .style("letter-spacing", "0.1em");
 
     // --- TOOLTIPS ---
-    link.append("title").text((d: any) => `${d.source.label} → ${d.target.label}: ${d.relation}`);
+    link.append("title").text((d: any) => `${d.source.label || d.source} → ${d.target.label || d.target}: ${d.relation}`);
     node.append("title").text((d: any) => `${d.label} [Val: ${d.val}]`);
 
     // --- TICK FUNCTION with TRAUMA JITTER ---
@@ -115,7 +121,7 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger, executedCode }) =
         .attr("y", (d: any) => d.y + (Math.random() - 0.5) * jitter);
     });
 
-    function drag(simulation: d3.Simulation<d3.SimulationNodeDatum, undefined>) {
+    function drag(simulation: d3.Simulation<SimulationNode, undefined>) {
       function dragstarted(event: any) {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         event.subject.fx = event.subject.x;
@@ -137,7 +143,7 @@ const NetworkGraph: React.FC<Props> = ({ nodes, links, ledger, executedCode }) =
       simulation.stop();
     };
 
-  }, [nodes, links, trauma, hope]);
+  }, [simulationNodes, simulationLinks, trauma, hope]); // Only re-run if topology or key metrics change
 
   return (
     <div className={`w-full h-full min-h-[300px] flex flex-col bg-forge-black border border-stone-800 rounded-sm relative transition-all duration-500 ${trauma > 80 ? 'border-forge-crimson/30' : ''}`}>

@@ -1,19 +1,18 @@
 
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useGameStore } from '../state/gameStore';
-import { Play, Pause, FastForward, Rewind, Volume2, VolumeX, Maximize, Loader2, RefreshCw, ChevronLeft, ChevronRight, Speaker } from 'lucide-react';
+import { Play, Pause, FastForward, Rewind, Volume2, VolumeX, Loader2, RefreshCw, Speaker } from 'lucide-react';
 import { BEHAVIOR_CONFIG } from '../config/behaviorTuning';
 import { regenerateMediaForTurn } from '../state/mediaController';
 import { MediaStatus } from '../types';
+import { audioService } from '../services/AudioService';
 
-// Placeholder for formatTime if utils/helpers.ts is not created.
+// Placeholder for formatTime
 const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
 };
-
 
 interface MediaPanelProps {}
 
@@ -23,63 +22,60 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
     currentTurnId,
     audioPlayback,
     getTurnById,
-    setCurrentTurn,
     goToNextTurn,
     goToPreviousTurn,
     playTurn,
     pauseAudio,
-    resumeAudio,
     setVolume,
-    setPlaybackRate,
     setHasUserInteraction,
   } = useGameStore();
 
-  const audioRef = useRef<HTMLAudioElement>(null);
   const currentTurn = currentTurnId ? getTurnById(currentTurnId) : undefined;
 
   const [localVolume, setLocalVolume] = useState(audioPlayback.volume);
   const [isMuted, setIsMuted] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  
+  // Local state for smooth progress bar (decoupled from global store)
+  const [progress, setProgress] = useState(0);
+  const rafRef = useRef<number>(0);
 
-  // Sync internal audio element with Zustand state
+  // Sync volume state on mount/update
   useEffect(() => {
-    const audioEl = audioRef.current;
-    if (!audioEl) return;
+    setLocalVolume(audioPlayback.volume);
+  }, [audioPlayback.volume]);
 
-    audioEl.volume = audioPlayback.volume;
-    audioEl.playbackRate = audioPlayback.playbackRate;
-    audioEl.muted = isMuted;
+  // Visual Loop: Poll AudioService for time
+  useEffect(() => {
+    const loop = () => {
+      if (audioPlayback.isPlaying && currentTurn?.audioDuration) {
+        const time = audioService.getCurrentTime();
+        // Calculate progress percentage, clamp to 100
+        const percent = Math.min(100, (time / currentTurn.audioDuration) * 100);
+        setProgress(percent);
+        rafRef.current = requestAnimationFrame(loop);
+      }
+    };
 
-    // This useEffect now primarily syncs visual playback state.
-    // The actual audio playback logic is handled by playTurn/pauseAudio
-    // which directly interact with the Web Audio API.
-    // If the turn changes and is playing, play it via the store.
-    if (audioPlayback.isPlaying && audioPlayback.currentPlayingTurnId === currentTurn?.id) {
-        // No direct `play()` call here; `playTurn` handles Web Audio API.
-        // This effect mainly keeps UI consistent.
-    } else if (!audioPlayback.isPlaying) {
-        // If Zustand says paused, ensure element reflects it
-        // (though Web Audio API is primary)
+    if (audioPlayback.isPlaying) {
+      loop();
+    } else {
+      cancelAnimationFrame(rafRef.current);
+      // If paused, we can update one last time or leave it
     }
 
-  }, [audioPlayback.volume, audioPlayback.playbackRate, isMuted, audioPlayback.isPlaying, audioPlayback.currentPlayingTurnId, currentTurn?.id]);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [audioPlayback.isPlaying, currentTurn?.audioDuration, currentTurn?.id]);
 
-  // Handle playing audio when a turn becomes current and audio is ready
+  // Reset progress when turn changes
   useEffect(() => {
-    if (currentTurn && currentTurn.id === audioPlayback.currentPlayingTurnId && audioPlayback.isPlaying) {
-      // If audio is already playing and this is the active turn, ensure UI reflects it
-      // No explicit play here, as playTurn() handles Web Audio context.
-    } else if (currentTurn && currentTurn.id === audioPlayback.currentPlayingTurnId && !audioPlayback.isPlaying) {
-      // If the current turn is the one expected to be playing, but the state says paused
-      // (e.g., after an explicit pause), then the Web Audio Context is likely suspended.
-    }
-  }, [currentTurn, audioPlayback.isPlaying, audioPlayback.currentPlayingTurnId]);
+    setProgress(0);
+  }, [currentTurnId]);
 
   // Auto-play the currently selected turn if auto-advance is on and audio is ready
   useEffect(() => {
     if (currentTurn && currentTurn.audioStatus === MediaStatus.ready && audioPlayback.autoAdvance && audioPlayback.hasUserInteraction) {
       if (audioPlayback.currentPlayingTurnId !== currentTurn.id) {
-        // Only play if a different turn's audio is not already active
         playTurn(currentTurn.id);
       }
     }
@@ -100,23 +96,26 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
       setLocalVolume(0);
       setVolume(0);
     } else {
-      setLocalVolume(audioPlayback.volume > 0 ? audioPlayback.volume : 0.7); // Restore to previous or default
-      setVolume(audioPlayback.volume > 0 ? audioPlayback.volume : 0.7);
+      const restoreVol = audioPlayback.volume > 0 ? audioPlayback.volume : 0.7;
+      setLocalVolume(restoreVol);
+      setVolume(restoreVol);
     }
   }, [isMuted, audioPlayback.volume, setVolume]);
 
   const handlePlayPause = useCallback(() => {
     setHasUserInteraction(); // Crucial for browser autoplay policies
-    if (audioPlayback.isPlaying && audioPlayback.currentPlayingTurnId === currentTurn?.id) {
+    if (!currentTurnId) return;
+
+    if (audioPlayback.isPlaying && audioPlayback.currentPlayingTurnId === currentTurnId) {
       pauseAudio();
-    } else if (currentTurn?.audioStatus === MediaStatus.ready && currentTurn.id) {
-      playTurn(currentTurn.id);
+    } else if (currentTurn?.audioStatus === MediaStatus.ready) {
+      playTurn(currentTurnId);
     } else if (!currentTurn) {
         console.warn("No current turn selected to play.");
     } else {
-        console.warn(`Audio for turn ${currentTurn.id} is not ready (${currentTurn.audioStatus}).`);
+        console.warn(`Audio for turn ${currentTurnId} is not ready (${currentTurn?.audioStatus}).`);
     }
-  }, [audioPlayback.isPlaying, audioPlayback.currentPlayingTurnId, currentTurn, playTurn, pauseAudio, setHasUserInteraction]);
+  }, [audioPlayback.isPlaying, audioPlayback.currentPlayingTurnId, currentTurnId, currentTurn, playTurn, pauseAudio, setHasUserInteraction]);
 
   const handleRegenerateMedia = useCallback(async (type?: 'image' | 'audio' | 'video') => {
     if (currentTurn?.id) {
@@ -135,7 +134,6 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
   }
 
   const {
-    text,
     imageData,
     imageStatus,
     audioDuration,
@@ -167,7 +165,6 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
             onLoadedData={() => setImageLoaded(true)}
             onError={(e) => {
                 console.error("Video element error:", e);
-                // regenerateMediaForTurn(currentTurn.id, 'video'); // Auto-retry video
             }}
           />
         ) : imageData && imageStatus === MediaStatus.ready ? (
@@ -178,7 +175,6 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
             onLoad={() => setImageLoaded(true)}
             onError={(e) => {
                 console.error("Image element error:", e);
-                // regenerateMediaForTurn(currentTurn.id, 'image'); // Auto-retry image
             }}
           />
         ) : (
@@ -233,12 +229,12 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
         {/* Progress Bar & Time */}
         <div className="flex items-center gap-3">
           <span className="font-mono text-[10px] text-stone-500">
-            {formatTime(audioPlayback.currentPlayingTurnId === currentTurn.id ? audioPlayback.currentTime : 0)}
+            {formatTime((progress / 100) * (audioDuration || 0))}
           </span>
-          <div className="flex-1 h-1 bg-stone-800 rounded-full relative">
+          <div className="flex-1 h-1 bg-stone-800 rounded-full relative overflow-hidden">
             <div
-              className="absolute inset-y-0 left-0 bg-forge-gold rounded-full transition-all duration-100 ease-linear"
-              style={{ width: `${(audioPlayback.currentPlayingTurnId === currentTurn.id && audioDuration) ? (audioPlayback.currentTime / audioDuration) * 100 : 0}%` }}
+              className="absolute inset-y-0 left-0 bg-forge-gold rounded-full transition-all duration-75 ease-linear"
+              style={{ width: `${progress}%` }}
             ></div>
           </div>
           <span className="font-mono text-[10px] text-stone-500">
@@ -264,7 +260,6 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
           <span className="ml-auto font-mono text-[10px] uppercase flex items-center gap-1">
             <Speaker size={14} /> RATE: {audioPlayback.playbackRate.toFixed(1)}x
           </span>
-          {/* Add rate change buttons if needed */}
         </div>
       </div>
     </div>

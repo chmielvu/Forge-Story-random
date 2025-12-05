@@ -9,29 +9,10 @@ import {
 } from '../types';
 import { BEHAVIOR_CONFIG } from '../config/behaviorTuning';
 import { INITIAL_LEDGER } from '../constants';
+import { audioService } from '../services/AudioService';
 
 // Helper to generate a unique ID
 const generateId = () => `mm_turn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-// Decode base64 audio (PCM)
-function decode(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-// Global AudioContext for shared playback
-let globalAudioContext: AudioContext | null = null;
-const getAudioContext = () => {
-  if (!globalAudioContext) {
-    globalAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-  }
-  return globalAudioContext;
-};
 
 export const createMultimodalSlice: StateCreator<
   CombinedGameStoreState,
@@ -49,12 +30,10 @@ export const createMultimodalSlice: StateCreator<
   audioPlayback: {
     currentPlayingTurnId: null,
     isPlaying: false,
-    currentTime: 0,
     volume: 0.7, // Default volume
     playbackRate: 1.0,
     autoAdvance: false,
     hasUserInteraction: false, // Must be true for browser autoplay
-    currentAudioSource: null, // Added for audio resource management
   },
 
   registerTurn: (text, visualPrompt, metadata) => {
@@ -281,8 +260,7 @@ export const createMultimodalSlice: StateCreator<
   },
 
   playTurn: async (turnId) => {
-    const audioContext = getAudioContext();
-    const { audioPlayback, multimodalTimeline, setHasUserInteraction } = get();
+    const { multimodalTimeline, audioPlayback, setHasUserInteraction } = get();
     const turn = multimodalTimeline.find((t) => t.id === turnId);
 
     if (!turn || turn.audioStatus !== MediaStatus.ready || !turn.audioUrl) {
@@ -290,136 +268,85 @@ export const createMultimodalSlice: StateCreator<
       return;
     }
 
-    // Stop and disconnect any existing audio source
-    if (audioPlayback.currentAudioSource) {
-      audioPlayback.currentAudioSource.stop();
-      audioPlayback.currentAudioSource.disconnect();
-      set((state) => ({ audioPlayback: { ...state.audioPlayback, currentAudioSource: null } }));
-    }
+    setHasUserInteraction();
 
-    // Suspend audio context if another turn was playing
-    if (audioPlayback.isPlaying && audioPlayback.currentPlayingTurnId) {
-      audioContext.suspend(); 
-    }
+    // Update state to indicate playing
+    set((state) => ({
+      audioPlayback: { ...state.audioPlayback, isPlaying: true, currentPlayingTurnId: turnId },
+    }));
 
-    try {
-      const decodedBytes = decode(turn.audioUrl);
-      const dataInt16 = new Int16Array(decodedBytes.buffer);
-      const frameCount = dataInt16.length; 
-      const buffer = audioContext.createBuffer(1, frameCount, 24000); 
-      const channelData = buffer.getChannelData(0);
-      for (let i = 0; i < frameCount; i++) {
-        channelData[i] = dataInt16[i] / 32768.0; 
+    // Delegate playback to AudioService
+    await audioService.play(
+      turn.audioUrl,
+      get().audioPlayback.volume,
+      () => {
+        // onEnded callback
+        const { audioPlayback: ap, multimodalTimeline: currentTimeline } = get();
+        if (ap.autoAdvance) {
+          const currentIndex = currentTimeline.findIndex(t => t.id === turnId);
+          if (currentIndex !== -1 && currentIndex < currentTimeline.length - 1) {
+            const nextTurn = currentTimeline[currentIndex + 1];
+            // Small delay to allow state to settle
+            window.setTimeout(() => {
+              get().setCurrentTurn(nextTurn.id);
+              get().playTurn(nextTurn.id);
+            }, 100);
+            return;
+          }
+        }
+        // If not auto-advancing or end of timeline, reset playing state
+        set((state) => ({
+          audioPlayback: { ...state.audioPlayback, isPlaying: false },
+        }));
       }
-
-      const source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioContext.destination);
-
-      source.onended = () => {
-        set((state) => {
-          // Clear the current audio source
-          if (state.audioPlayback.currentAudioSource === source) {
-            source.disconnect();
-          }
-
-          if (state.audioPlayback.autoAdvance && state.audioPlayback.currentPlayingTurnId === turnId) {
-            const currentIndex = state.multimodalTimeline.findIndex(t => t.id === turnId);
-            if (currentIndex !== -1 && currentIndex < state.multimodalTimeline.length - 1) {
-              const nextTurn = state.multimodalTimeline[currentIndex + 1];
-              window.setTimeout(() => { // Use window.setTimeout for browser compatibility
-                get().setCurrentTurn(nextTurn.id); 
-                get().playTurn(nextTurn.id); 
-              }, 100); 
-            }
-          }
-          return {
-            audioPlayback: { ...state.audioPlayback, isPlaying: false, currentPlayingTurnId: null, currentTime: 0, currentAudioSource: null },
-          };
-        });
-      };
-
-      source.start(0); 
-      audioContext.resume(); 
-
-      setHasUserInteraction(); 
-
-      set((state) => ({
-        audioPlayback: {
-          ...state.audioPlayback,
-          currentPlayingTurnId: turnId,
-          isPlaying: true,
-          currentTime: 0,
-          currentAudioSource: source, // Store the new source
-        },
-      }));
-
-      // Use window.setInterval to ensure return type is number (browser compatible)
-      let playbackInterval: number | undefined;
-      playbackInterval = window.setInterval(() => {
-        set((state) => {
-          if (state.audioPlayback.currentPlayingTurnId === turnId && state.audioPlayback.isPlaying) {
-            const newTime = state.audioPlayback.currentTime + 1;
-            if (newTime >= (turn.audioDuration || Infinity)) {
-              if (playbackInterval) window.clearInterval(playbackInterval); 
-              return state;
-            }
-            return {
-              audioPlayback: { ...state.audioPlayback, currentTime: newTime },
-            };
-          } else {
-            if (playbackInterval) window.clearInterval(playbackInterval); 
-            return state;
-          }
-        });
-      }, 1000); 
-
-    } catch (error) {
-      console.error(`[MultimodalSlice] Error playing audio for turn ${turnId}:`, error);
-      set((state) => ({
-        audioPlayback: { ...state.audioPlayback, isPlaying: false, currentPlayingTurnId: null, currentTime: 0, currentAudioSource: null },
-      }));
-    }
+    );
   },
 
   pauseAudio: () => {
-    const audioContext = getAudioContext();
-    const { currentAudioSource } = get().audioPlayback;
-    if (currentAudioSource) {
-      currentAudioSource.stop(); 
-      currentAudioSource.disconnect(); 
-    }
-    audioContext.suspend();
-    set((state) => ({ audioPlayback: { ...state.audioPlayback, isPlaying: false, currentAudioSource: null } }));
+    audioService.pause();
+    set((state) => ({
+      audioPlayback: { ...state.audioPlayback, isPlaying: false },
+    }));
   },
 
   resumeAudio: () => {
-    const audioContext = getAudioContext();
-    audioContext.resume();
-    set((state) => ({ audioPlayback: { ...state.audioPlayback, isPlaying: true } }));
+    // Note: AudioService.play supports resume via start offset, but here we generally replay or let user click play.
+    // If we wanted resume, we'd need to track paused state better in Service or just re-call play with offset.
+    // For simplicity given the current structure, we treat resume as play.
+    const { currentPlayingTurnId } = get().audioPlayback;
+    if (currentPlayingTurnId) {
+        get().playTurn(currentPlayingTurnId);
+    }
   },
 
   seekAudio: (time) => {
-    set((state) => ({ audioPlayback: { ...state.audioPlayback, currentTime: time } }));
-    console.warn("[MultimodalSlice] Audio seeking not fully implemented with current PCM playback logic. Only UI state updated.");
+    console.warn("[MultimodalSlice] Audio seeking is not supported with the current stateless architecture.");
   },
 
   setVolume: (volume) => {
-    set((state) => ({ audioPlayback: { ...state.audioPlayback, volume } }));
-    console.warn("[MultimodalSlice] Audio volume control not fully implemented. Only UI state updated.");
+    audioService.setVolume(volume);
+    set((state) => ({
+      audioPlayback: { ...state.audioPlayback, volume },
+    }));
   },
 
   setPlaybackRate: (rate) => {
-    set((state) => ({ audioPlayback: { ...state.audioPlayback, playbackRate: rate } }));
-    console.warn("[MultimodalSlice] Audio playback rate control not fully implemented. Only UI state updated.");
+    set((state) => ({
+      audioPlayback: { ...state.audioPlayback, playbackRate: rate },
+    }));
+    console.warn("[MultimodalSlice] Playback rate control not fully implemented in AudioService.");
   },
 
   toggleAutoAdvance: () => {
-    set((state) => ({ audioPlayback: { ...state.audioPlayback, autoAdvance: !state.audioPlayback.autoAdvance } }));
+    set((state) => ({
+      audioPlayback: { ...state.audioPlayback, autoAdvance: !state.audioPlayback.autoAdvance },
+    }));
   },
 
   setHasUserInteraction: () => {
-    set((state) => ({ audioPlayback: { ...state.audioPlayback, hasUserInteraction: true } }));
+    set((state) => ({
+      audioPlayback: { ...state.audioPlayback, hasUserInteraction: true },
+    }));
   },
 
   getCoherenceReport: (turnId) => {
@@ -465,7 +392,7 @@ export const createMultimodalSlice: StateCreator<
 
   resetMultimodalState: () => {
     // Stop any playing audio before reset
-    get().pauseAudio();
+    audioService.stop();
 
     set({
       multimodalTimeline: [],
@@ -478,18 +405,11 @@ export const createMultimodalSlice: StateCreator<
       audioPlayback: {
         currentPlayingTurnId: null,
         isPlaying: false,
-        currentTime: 0,
         volume: 0.7,
         playbackRate: 1.0,
         autoAdvance: false,
         hasUserInteraction: false,
-        currentAudioSource: null,
       },
     });
-    // Ensure AudioContext is closed and reset
-    if (globalAudioContext) {
-      globalAudioContext.close().catch(e => console.error("Error closing AudioContext:", e));
-      globalAudioContext = null; 
-    }
   },
 });

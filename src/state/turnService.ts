@@ -152,15 +152,14 @@ export const turnService = {
     // Automatically play the first turn (after it's ready)
     const firstTurn = store.multimodalTimeline[0];
     if (firstTurn) {
-      const unsubscribe = useGameStore.subscribe(
-        (state) => state.multimodalTimeline.find(t => t.id === firstTurn.id)?.audioStatus,
-        (audioStatus) => {
-          if (audioStatus === 'ready') {
-            store.playTurn(firstTurn.id);
-            unsubscribe(); // Only play once
-          }
+      const unsubscribe = useGameStore.subscribe((state) => {
+        const t = state.multimodalTimeline.find(t => t.id === firstTurn.id);
+        const audioStatus = t?.audioStatus;
+        if (audioStatus === 'ready') {
+          store.playTurn(firstTurn.id);
+          unsubscribe();
         }
-      );
+      });
     }
   },
 };

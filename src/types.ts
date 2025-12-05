@@ -1,4 +1,5 @@
 
+
 export enum CharacterId {
   PROVOST = 'Provost_Selene',
   LOGICIAN = 'Dr_Lysandra',
@@ -351,7 +352,7 @@ export interface MediaQueueItem {
   type: 'image' | 'audio' | 'video'; 
   prompt: string; // This will now be the fully coherent JSON string for images
   narrativeText?: string; // For audio generation
-  target?: PrefectDNA | CharacterId; // Added for buildVisualPrompt context
+  target?: PrefectDNA | CharacterId | string; // Added for buildVisualPrompt context, updated to allow string
   previousTurn?: MultimodalTurn; // Added for buildVisualPrompt context
   retries?: number; 
   addedAt?: number; 
@@ -361,12 +362,12 @@ export interface MediaQueueItem {
 export interface AudioPlaybackState {
   currentPlayingTurnId: string | null;
   isPlaying: boolean;
-  currentTime: number; // In seconds, of the current playing audio
+  // currentTime REMOVED: Managed by AudioService/Local State
   volume: number; // 0-1
   playbackRate: number; // 0.5x, 1x, 1.5x, 2x
   autoAdvance: boolean; // Play next turn automatically
   hasUserInteraction: boolean; // Required for autoplay in browsers
-  currentAudioSource: AudioBufferSourceNode | null; // Added for audio resource management
+  // currentAudioSource REMOVED: Managed by AudioService
 }
 
 export interface CoherenceReport {
